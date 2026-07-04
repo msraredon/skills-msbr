@@ -1,0 +1,24 @@
+{
+  "name": "raredon-lab",
+  "owner": {
+    "name": "Micha Sam Brickman Raredon",
+    "email": "michasam.raredon@yale.edu"
+  },
+  "metadata": {
+    "description": "Raredon Lab Claude Code skills for scientific work (writing, referencing, data viz, computational, experimental design, funding, grantsmanship, wet/dry lab).",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "lab-skills",
+      "source": ".",
+      "description": "Raredon Lab skill suite. Currently: reference-check — extract, verify (DOI/PMID/URL), and tabulate the references in a document; build a reference library in five manager formats; judge whether each reference supports the sentence citing it.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Micha Sam Brickman Raredon",
+        "email": "michasam.raredon@yale.edu"
+      },
+      "keywords": ["science", "references", "citations", "bibliography", "research", "lab"]
+    }
+  ]
+}

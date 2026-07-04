@@ -1,0 +1,124 @@
+# Lab reference standard
+
+The definition of a correct, complete, professionally formatted reference for
+lab documents. This file is the single source of truth for what the
+`reference-check` skill produces and flags. **Edit it to change the standard;**
+the skill follows it.
+
+> Status: v0.1 (draft). Proposed defaults below — review and amend.
+
+## 1. Identifier policy
+
+Every reference must be traceable to at least one identifier a human can click
+and verify. In priority order, and **recording all that exist**:
+
+1. **DOI** — preferred primary identifier (nearly everything has one). Stored
+   bare (`10.xxxx/...`), surfaced as `https://doi.org/<doi>`.
+2. **PMID** — recorded whenever the work is in PubMed (most biomedical work),
+   surfaced as `https://pubmed.ncbi.nlm.nih.gov/<pmid>/`. DOI and PMID are
+   **both** kept when both exist.
+3. **PMCID** — recorded when open-access full text exists in PubMed Central.
+4. **Working URL** — for works with no DOI/PMID (preprints, software, datasets,
+   reports); must return HTTP 200.
+
+A reference with none of the above is **flagged**.
+
+## 2. Required metadata fields
+
+Journal article (the common case):
+
+- Authors (family + given, in order)
+- Title
+- Year
+- Journal / container title
+- Volume, issue, pages
+- DOI and/or PMID (per §1)
+- Verified URL
+
+Other types (book, chapter, preprint, dataset, software, web) follow CSL-JSON
+conventions for that type; identifier policy still applies.
+
+## 3. Data model
+
+- A **reference** is a unique numbered work — the bibliography number is its id.
+- A **citation** is one in-text marker tied to one sentence/claim, linking to
+  one or more references (e.g. marker `8-10` → references 8, 9, 10).
+- **Appropriateness** is judged per (citation, reference) pair.
+
+References are recovered from two sources, unified by number: records embedded
+in citation fields (authoritative DOI/PMID), and the rendered numbered
+bibliography (usually the only complete source).
+
+## 4. Audit table — "Citations (audit)"
+
+A linear list of citations in document order, each expanded to one row per
+referenced work. Citation-level cells (`citation`, `marker`, `section`, `claim`)
+are merged across a citation's reference rows so the claim reads once above its
+references. Columns:
+
+| column | level | source | notes |
+|--------|-------|--------|-------|
+| `citation` | citation | script | stable id, doc order (C1, C2, …) |
+| `marker` | citation | script | rendered marker, e.g. `(16)` or `(8-10)` |
+| `section` | citation | script | paragraph style / section |
+| `claim` | citation | script | the sentence the marker sits in |
+| `reference` | reference | script | reference number (matches the manuscript) |
+| `authors`, `year`, `title`, `journal` | reference | script | authoritative metadata |
+| `doi`, `pmid`, `url` | reference | script | hyperlinked in xlsx |
+| `existence` | reference | script | `verified (DOI+PMID)` / `unverified` / `unresolved` |
+| `confidence` | reference | script | high (embedded id) / medium (bib match) / low |
+| `ref_summary` | reference | **model** | 1–2 sentences on the reference's main point |
+| `connection` | pair | **model** | one sentence linking reference to this claim |
+| `appropriateness` | pair | **model** | `Supports` / `Partial` / `Unclear` / `Mismatch` |
+| `flag`, `flag_reason` | pair | script+model | TRUE if any flag rule fires, and why |
+| `notes` | pair | either | free text |
+
+## 5. Library table — "References (library)"
+
+One row per unique reference: number, authors, year, title, journal, volume,
+issue, pages, DOI, PMID, URL, `open_access` (Unpaywall/PMC link when available),
+existence, confidence, citation count, `cited_by` (which citations use it),
+summary, notes. Human-readable companion to the exported library files.
+
+Open-access full text (PubMed Central, else Unpaywall) is fetched when available
+and used to judge appropriateness for specific claims; it is stored on the work
+and surfaced as the `open_access` link.
+
+## 6. Flagging rules
+
+Flag a citation/work for human review when **any** hold:
+
+1. No working DOI, PMID, or URL found.
+2. Identifier present but does not verify online.
+3. Best match found only by title/author search with **low confidence**.
+4. Abstract and open-access full text both unobtainable (can't judge support).
+5. Appropriateness is anything other than `Supports`.
+6. Metadata conflict (e.g., embedded year disagrees with Crossref/PubMed).
+
+Flagged rows are highlighted in the xlsx and listed in `<stem>_REVIEW.md`.
+
+## 7. Appropriateness rubric
+
+- **Supports** — the reference's findings/claims directly back the cited sentence.
+- **Partial** — supports part of the claim, or is tangentially related.
+- **Unclear** — cannot determine from available text; needs human eyes.
+- **Mismatch** — the reference does not support (or contradicts) the claim.
+
+Prefer open-access full text (PMC/Unpaywall) over the abstract for specific
+quantitative claims. Never overstate support; a flag is a valid outcome.
+
+## 8. Library export formats (generated by default)
+
+- **CSL-JSON** (`.csl.json`) — canonical master; imports into Zotero and pandoc.
+- **BibTeX** (`.bib`) — LaTeX and all managers.
+- **RIS** (`.ris`) — EndNote, Zotero, Mendeley.
+- **EndNote** (`.enw`) — EndNote native tagged import.
+- **Zotero RDF** (`.rdf`) — Zotero legacy native import.
+
+All are derived from the one canonical work list, so they stay consistent. DOI,
+PMID, and abstract are carried into every format that has a field for them.
+
+## 9. Citekey convention
+
+`<FirstAuthorFamily><Year><FirstSignificantTitleWord>`, ASCII-only, de-duplicated
+with a trailing letter (e.g. `Goldstein2007Evolution`). Used as the BibTeX key.
