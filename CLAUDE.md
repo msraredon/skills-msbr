@@ -87,3 +87,14 @@ appropriateness per (citation, reference) pair. Full working notes in
 [skills/reference-check/SKILL.md](skills/reference-check/SKILL.md). Key lesson baked into its
 design: **references may live in the rendered bibliography, not the citation
 fields — read both, and link by reference number.**
+
+### coding-standards & github-standards
+Two paired skills that encode the **Computational Lab Manual** (Ch. 03–06;
+`RaredonLab/Computational-Lab-Manual` is the source of truth). `coding-standards`
+governs how code is written (header block, one-operation scripts, `functions/`,
+Quarto narration, `NN_YYYYMMDD_AB` naming, describe-data/generate-executable-code);
+`github-standards` governs the repo and fork workflow (RaredonLab origin main+dev →
+personal fork `repo-AB` → local; PR to `dev`, never `main`). Both **offer, never
+force**, and record the member's consent in the repo's `CLAUDE.md` via a
+`raredon-standards:` marker. See each skill's `CLAUDE.md`. Design rule for these:
+the **manual is canonical** — if a reference file drifts from it, fix the file.

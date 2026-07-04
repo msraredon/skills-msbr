@@ -40,6 +40,8 @@ ln -s "$PWD/skills/reference-check" ~/.claude/skills/reference-check
 | skill | what it does | status |
 |-------|--------------|--------|
 | [`reference-check`](skills/reference-check/) | Extract, verify (DOI/PMID/URL), and tabulate the references in a document; build a per-citation audit table + a per-reference library in five manager formats; judge whether each reference supports the sentence citing it. | v0.3.0 (Word .docx; LaTeX/PDF planned) |
+| [`coding-standards`](skills/coding-standards/) | Write R/Python for lab data-science the lab way: standard header block, one-operation scripts, `functions/`, Quarto narration, lab naming; generate executable code you run locally against data you only describe. | v0.1.0 |
+| [`github-standards`](skills/github-standards/) | Set up and run version control the lab way: repo init/structure, the fork model (RaredonLab origin → personal fork → local), standard `.gitignore`/layout/`CLAUDE.md`, and the daily commit → push → PR-to-`dev` loop. GitHub Desktop friendly. | v0.1.0 |
 
 ## Planned skill domains
 
