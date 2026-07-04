@@ -1,5 +1,6 @@
 ---
 name: reference-check
+version: 0.3.0
 description: >-
   Extract, verify, and tabulate the references in a scholarly document (Word
   .docx now; LaTeX/Markdown/PDF/plain-text planned). Confirms every citation is

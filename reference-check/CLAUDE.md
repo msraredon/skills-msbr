@@ -36,11 +36,16 @@ Entry points: `scripts/refcheck_cli.py` (ingest→verify→tables+library),
   text marker → numbers → references; appropriateness is per (citation, ref).
 - **EndNote nests fields** (`EN.CITE` wraps `EN.CITE.DATA`); never concatenate all
   `instrText` globally — walk the field stack and bubble child records up.
-- **Guard fuzzy matches.** `best_bibmatch` requires title-token containment;
-  a weak match is flagged, not accepted. Crossref sometimes returns markup-
-  mangled titles (`<scp>`), so strip tags before scoring. Known gap: when the
-  Crossref title is mangled, matching can false-flag a correct paper — improve by
-  also scoring first-author surname + year.
+- **Precision-first matching (v0.3).** Bibliography-only entries resolve by
+  searching an *extracted title* (see `bibliography.extract_title`), scoring
+  three signals (title tokens, author surnames, year), and accepting only via
+  `_accept` — which is **year-gated** (a wrong-year candidate is never accepted,
+  ±1 for epub/print). Strategies are tried in order **PubMed-first, then
+  Crossref** (biomedical corpus → PMID + abstract + canonical DOI, and avoids
+  conference-abstract duplicate DOIs). This eliminated both the earlier false
+  flags and the false positives; never loosen the year gate to chase recall.
+- **Cache only successes.** `_get` must not cache failed/empty responses, or a
+  transient timeout poisons the cache and silently drops abstracts.
 - **Never fabricate support.** No abstract → `Unclear` + flag. A `Mismatch` (e.g.
   a mis-numbered citation) is a valuable finding, not a failure.
 

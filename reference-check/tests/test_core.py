@@ -145,6 +145,35 @@ def test_records_from_fieldcode_multiple_cites():
     assert len(recs) == 1 and recs[0]["DOI"] == "10.1000/abc"
 
 
+def test_extract_title_strips_authors_and_journal():
+    from refcheck.bibliography import extract_title
+    raw = ("C. Langston et al., Alveolar multiplication in the contralateral lung "
+           "after unilateral pneumonectomy in the rabbit. Am Rev Respir Dis 115, 7-13 (1977).")
+    assert extract_title(raw) == (
+        "Alveolar multiplication in the contralateral lung after unilateral "
+        "pneumonectomy in the rabbit")
+    raw2 = ("J. S. Brody, R. Burki, N. Kaplan, Deoxyribonucleic acid synthesis in "
+            "lung cells during compensatory lung growth after pneumonectomy. "
+            "Am Rev Respir Dis 117, 307-316 (1978).")
+    assert extract_title(raw2).startswith("Deoxyribonucleic acid synthesis in lung cells")
+
+
+def test_accept_is_year_gated():
+    """Precision guard: a wrong-year candidate is never accepted."""
+    from refcheck.resolve import _match_signals, _accept, _tokens
+    raw = "Alveolar multiplication in the contralateral lung after pneumonectomy in the rabbit"
+    rt = _tokens(raw)
+    # same title tokens but the wrong year -> must be rejected
+    wrong = {"title": ["Alveolar multiplication in the contralateral lung after "
+                        "pneumonectomy in the rabbit"],
+             "issued": {"date-parts": [[2012]]}}
+    t, a, y, yk = _match_signals(wrong, raw, rt, year="1977")
+    assert t > 0.6 and _accept(t, a, y, yk) is False   # high title but wrong year
+    right = dict(wrong); right["issued"] = {"date-parts": [[1977]]}
+    t2, a2, y2, yk2 = _match_signals(right, raw, rt, year="1977")
+    assert _accept(t2, a2, y2, yk2) is True
+
+
 def test_judgments_fill_and_escalate_flag():
     """Applying judgments fills columns and flags non-Supports pairs."""
     from refcheck.model import Citation

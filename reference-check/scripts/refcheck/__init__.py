@@ -6,4 +6,4 @@ from which every export format (BibTeX, RIS, EndNote .enw, Zotero RDF, CSL-JSON)
 is derived.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"

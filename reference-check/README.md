@@ -1,5 +1,7 @@
 # reference-check
 
+**Version 0.3.0**
+
 Check, verify, and tabulate the references in a scholarly document. For every
 citation it answers: **is the reference real** (verifiable by a human via a
 working DOI / PMID / URL), **what is it** (clean metadata + summary), and **does
@@ -49,8 +51,11 @@ this is the hybrid step; the scripts handle everything deterministic.
 ## What "good" looks like
 
 On a real 105-reference manuscript: 75 citations extracted and mapped to
-sentences, 105 references recovered, **102 verified online** with DOI (99 with
-PMID, 95 with abstracts), 3 flagged for human review.
+sentences, **all 105 references verified online** (105 DOIs, 103 PMIDs, 96
+abstracts, 76 open-access, 61 with PubMed Central full text), **zero false
+matches**. Appropriateness across all 124 (citation, reference) pairs: 106
+Supports, 8 Partial, 9 Unclear (genuinely text-less), and 1 Mismatch — a
+mis-numbered citation the tool caught.
 
 ## Data model
 
@@ -87,7 +92,16 @@ sentence attachment, and bibliography linkage.
 
 ## Roadmap
 
-- Appropriateness automation with open-access full text (PMC / Unpaywall).
 - Ingest for LaTeX (`.bib` + `\cite`), Markdown, plain text, and PDF.
 - Reverse mode: a reference library in → verified library table out.
 - Library de-duplication / merge across documents.
+- PDF-text fallback for the ~8% of references with no abstract or PMC full text.
+
+## Changelog
+
+- **0.3.0** — Open-access full text (Unpaywall + PubMed Central); precision-first
+  bibliographic matching (title extraction, author+year scoring, year-gated
+  acceptance, PubMed-first) that eliminates false matches and false flags;
+  appropriateness automated across all pairs.
+- **0.2.0** — Parse the rendered bibliography; citation-centric grouped tables.
+- **0.1.0** — docx ingest, online verification, five-format library, tables.

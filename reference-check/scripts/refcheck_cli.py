@@ -37,7 +37,9 @@ def ingest_any(path: str):
 
 
 def main() -> int:
+    from refcheck import __version__
     ap = argparse.ArgumentParser(description="Extract, verify, and tabulate references.")
+    ap.add_argument("--version", action="version", version=f"reference-check {__version__}")
     ap.add_argument("document", help="Input document (.docx in Phase 1)")
     ap.add_argument("-o", "--outdir", default=None, help="Output directory")
     ap.add_argument("--no-resolve", action="store_true",

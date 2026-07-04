@@ -20,6 +20,7 @@ import urllib.parse
 import urllib.request
 from typing import Any, Optional
 
+from .bibliography import extract_title
 from .model import normalize_doi, normalize_pmid, parse_author
 
 CONTACT = os.environ.get("REFCHECK_CONTACT", "michasam.raredon@yale.edu")
@@ -28,6 +29,7 @@ USER_AGENT = f"refcheck/0.1 (mailto:{CONTACT})"
 
 CROSSREF = "https://api.crossref.org/works/"
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+UNPAYWALL = "https://api.unpaywall.org/v2/"
 
 
 class Resolver:
@@ -44,16 +46,15 @@ class Resolver:
     # ---- low-level HTTP -------------------------------------------------
     def _get(self, url: str) -> Optional[bytes]:
         key = "GET " + url
-        if key in self._cache:
-            return self._cache[key].encode("utf-8") if self._cache[key] else None
+        if self._cache.get(key):          # only cache successful, non-empty bodies
+            return self._cache[key].encode("utf-8")
         try:
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(req, timeout=20) as r:
                 body = r.read()
             self._cache[key] = body.decode("utf-8", "replace")
         except Exception:
-            self._cache[key] = ""
-            body = None
+            body = None                   # do NOT cache failures; allow retry
         time.sleep(self.delay)
         return body
 
@@ -90,28 +91,102 @@ class Resolver:
         except Exception:
             return []
 
-    def best_bibmatch(self, raw: str, year: Optional[str] = None):
+    def best_bibmatch(self, raw: str, year: Optional[str] = None,
+                      query: Optional[str] = None):
         """Resolve a free-text reference string to a Crossref record.
 
-        Returns (item, score) for the best candidate, or (None, 0.0). Guarded by
-        title-token containment so we never silently accept a wrong paper.
+        Returns (item, score, accept) for the best candidate. Scores three
+        independent signals — title-token containment, author-surname
+        containment, and year match — so a record with a garbled Crossref title
+        (e.g. small-caps markup) still verifies when the authors and year agree.
+        A candidate is accepted only when at least two signals corroborate, so a
+        wrong paper is never silently accepted.
         """
         raw_tokens = _tokens(raw)
-        best, best_score = None, 0.0
-        for item in self.crossref_biblio(raw):
-            title = re.sub(r"<[^>]+>", "", (item.get("title") or [""])[0])
-            t_tokens = _tokens(title)
-            if not t_tokens:
+        best, best_rank, best_sig = None, -1.0, (0.0, 0.0, 0.0, False)
+        for item in self.crossref_biblio(query or raw):
+            t, a, y, yknown = _match_signals(item, raw, raw_tokens, year)
+            rank = _rank(t, a, y, yknown)
+            if rank > best_rank:
+                best, best_rank, best_sig = item, rank, (t, a, y, yknown)
+        if best is None:
+            return None, 0.0, False
+        return best, round(best_rank, 2), _accept(*best_sig)
+
+    def pubmed_bibmatch(self, raw: str, year: Optional[str] = None,
+                        query: Optional[str] = None):
+        """Fallback: resolve a free-text reference against PubMed by search.
+
+        Better than Crossref for older biomedical papers that predate DOIs.
+        Returns (pmid, score, accept).
+        """
+        body = self._eutils("esearch.fcgi",
+                            {"db": "pubmed", "term": query or raw, "retmax": 5, "retmode": "json"})
+        if not body:
+            return None, 0.0, False
+        try:
+            ids = json.loads(body)["esearchresult"].get("idlist", [])
+        except Exception:
+            ids = []
+        raw_tokens = _tokens(raw)
+        best_pmid, best_rank, best_sig = None, -1.0, (0.0, 0.0, 0.0, False)
+        for pmid in ids:
+            summ = self.pubmed_summary(pmid)
+            if not summ or summ.get("error"):
                 continue
-            overlap = len(t_tokens & raw_tokens) / len(t_tokens)
-            iyear = ""
-            if item.get("issued", {}).get("date-parts"):
-                iyear = str(item["issued"]["date-parts"][0][0])
-            if year and iyear and year != iyear:
-                overlap -= 0.25       # penalize year mismatch
-            if overlap > best_score:
-                best, best_score = item, overlap
-        return best, round(best_score, 2)
+            t, a, y, yknown = _match_signals(_summary_to_itemish(summ), raw, raw_tokens, year)
+            rank = _rank(t, a, y, yknown)
+            if rank > best_rank:
+                best_pmid, best_rank, best_sig = pmid, rank, (t, a, y, yknown)
+        if best_pmid is None:
+            return None, 0.0, False
+        return best_pmid, round(best_rank, 2), _accept(*best_sig)
+
+    # ---- Open access (Unpaywall + PubMed Central) -----------------------
+    def unpaywall(self, doi: str) -> Optional[dict]:
+        body = self._get(UNPAYWALL + urllib.parse.quote(doi) + f"?email={CONTACT}")
+        if not body:
+            return None
+        try:
+            d = json.loads(body)
+        except Exception:
+            return None
+        loc = d.get("best_oa_location") or {}
+        return {
+            "is_oa": bool(d.get("is_oa")),
+            "oa_url": loc.get("url_for_landing_page") or loc.get("url"),
+            "pdf_url": loc.get("url_for_pdf"),
+        }
+
+    def pmcid_from_summary(self, summary: dict) -> Optional[str]:
+        for aid in summary.get("articleids", []):
+            if aid.get("idtype") in ("pmc", "pmcid") and aid.get("value"):
+                m = re.search(r"PMC\d+", aid["value"])
+                return m.group(0) if m else aid["value"]
+        return None
+
+    def pmc_fulltext(self, pmcid: str, limit: int = 12000) -> Optional[str]:
+        """Open-access full-text body from PMC (open-access subset only)."""
+        pmc_num = pmcid.replace("PMC", "")
+        body = self._eutils("efetch.fcgi", {"db": "pmc", "id": pmc_num, "retmode": "xml"})
+        if not body:
+            return None
+        import xml.etree.ElementTree as ET
+        try:
+            root = ET.fromstring(body)
+        except ET.ParseError:
+            return None
+        body_el = root.find(".//body")
+        if body_el is None:
+            return None
+        # gather paragraph text, dropping tables/figures markup
+        chunks = []
+        for p in body_el.iter("p"):
+            txt = " ".join("".join(p.itertext()).split())
+            if txt:
+                chunks.append(txt)
+        text = "\n".join(chunks).strip()
+        return text[:limit] if text else None
 
     # ---- NCBI (PMID) ----------------------------------------------------
     def pubmed_summary(self, pmid: str) -> Optional[dict]:
@@ -167,19 +242,35 @@ class Resolver:
         doi = normalize_doi(w.get("DOI"))
         pmid = normalize_pmid(custom.get("pmid"))
         report = {"doi_verified": False, "pmid_verified": False, "abstract": False,
+                  "oa": False, "full_text": False,
                   "cross_filled": [], "match_score": None, "errors": []}
 
         cr = None
-        # Bibliography-only entry: recover a DOI by bibliographic search first.
+        # Bibliography-only entry: recover an identifier by search first —
+        # Crossref (by DOI), then PubMed as a fallback for older biomedical work.
         if not doi and not pmid and custom.get("bib_raw"):
-            item, score = self.best_bibmatch(custom["bib_raw"], year=_work_year(w))
-            report["match_score"] = score
-            if item and score >= 0.6:
-                doi = normalize_doi(item.get("DOI"))
-                w["DOI"] = doi
-                cr = item
-                report["cross_filled"].append("doi<-bibsearch")
-            else:
+            raw, ryear = custom["bib_raw"], _work_year(w)
+            title_q = extract_title(raw)
+            best_score = 0.0
+            # Try several searches; take the first that passes precision-gated
+            # acceptance. PubMed first (biomedical corpus: yields PMID + abstract
+            # + canonical DOI and avoids conference-abstract duplicates), then
+            # Crossref; query by clean title first, then the full raw string.
+            for source, q in (("pm", title_q), ("cr", title_q), ("pm", raw), ("cr", raw)):
+                if source == "cr":
+                    item, sc, ok = self.best_bibmatch(raw, year=ryear, query=q)
+                    best_score = max(best_score, sc)
+                    if ok and item and normalize_doi(item.get("DOI")):
+                        doi = normalize_doi(item["DOI"]); w["DOI"] = doi; cr = item
+                        report["cross_filled"].append("doi<-crossref"); break
+                else:
+                    pm, sc, ok = self.pubmed_bibmatch(raw, year=ryear, query=q)
+                    best_score = max(best_score, sc)
+                    if ok and pm:
+                        pmid = pm; custom["pmid"] = pmid
+                        report["cross_filled"].append("pmid<-pubmed"); break
+            report["match_score"] = round(best_score, 2)
+            if not doi and not pmid:
                 report["errors"].append("no confident bibliographic match")
 
         if cr is None:
@@ -207,10 +298,25 @@ class Resolver:
             if abstract:
                 w["abstract"] = abstract
                 report["abstract"] = True
+            pmcid = self.pmcid_from_summary(summ)
+            if pmcid:
+                custom["pmcid"] = pmcid
 
         if not w.get("abstract") and cr and cr.get("abstract"):
             w["abstract"] = _strip_jats(cr["abstract"])
             report["abstract"] = True
+
+        # Open-access discovery + full text (for the appropriateness check).
+        oa = self.unpaywall(doi) if doi else None
+        if oa and oa.get("is_oa"):
+            report["oa"] = True
+            custom["oa"] = {"is_oa": True, "url": oa.get("oa_url"), "pdf_url": oa.get("pdf_url")}
+        pmcid = custom.get("pmcid")
+        if pmcid:
+            full = self.pmc_fulltext(pmcid)
+            if full:
+                w["full_text"] = full
+                report["full_text"] = True
 
         # Human-clickable, verified links.
         links = {}
@@ -218,9 +324,10 @@ class Resolver:
             links["doi_url"] = "https://doi.org/" + doi
         if pmid and report["pmid_verified"]:
             links["pubmed_url"] = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-        pmcid = custom.get("pmcid")
         if pmcid:
             links["pmc_url"] = f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}/"
+        if custom.get("oa", {}).get("url"):
+            links["oa_url"] = custom["oa"]["url"]
         custom["links"] = links
 
         verified = report["doi_verified"] or report["pmid_verified"]
@@ -228,7 +335,6 @@ class Resolver:
             "status": "verified" if verified else "unresolved",
             **report,
         }
-        # id may change if we cross-filled a DOI; keep original id stable for linking
         return w
 
     def _merge_crossref(self, w: dict, cr: dict) -> None:
@@ -270,9 +376,69 @@ _STOP = {"the", "a", "an", "of", "and", "in", "on", "for", "to", "with", "by",
 
 
 def _tokens(s: str) -> set:
-    import re
     words = re.findall(r"[a-z0-9]+", (s or "").lower())
     return {w for w in words if len(w) > 2 and w not in _STOP}
+
+
+def _author_families(item: dict) -> list[str]:
+    fams = []
+    for a in item.get("author", []):
+        fam = a.get("family") or a.get("name") or ""
+        fam = re.sub(r"[^A-Za-z]", "", fam).lower()
+        if len(fam) > 2:
+            fams.append(fam)
+    return fams
+
+
+def _match_signals(item: dict, raw: str, raw_tokens: set, year: Optional[str]):
+    """Return (title_score, author_score, year_score, year_known) in [0,1]."""
+    title = re.sub(r"<[^>]+>", "", (item.get("title") or [""])[0])
+    t_tokens = _tokens(title)
+    t = (len(t_tokens & raw_tokens) / len(t_tokens)) if t_tokens else 0.0
+    fams = _author_families(item)[:4]
+    a = (sum(1 for f in fams if f in raw_tokens) / len(fams)) if fams else 0.0
+    iyear = ""
+    if item.get("issued", {}).get("date-parts") and item["issued"]["date-parts"][0]:
+        iyear = str(item["issued"]["date-parts"][0][0])
+    yknown = bool(year and iyear)
+    y = 0.0
+    if yknown:
+        try:
+            y = 1.0 if abs(int(year) - int(iyear)) <= 1 else 0.0  # tolerate epub/print
+        except ValueError:
+            y = 0.0
+    return t, a, y, yknown
+
+
+def _rank(t: float, a: float, y: float, yknown: bool) -> float:
+    return 0.45 * t + 0.25 * a + 0.30 * (y if yknown else 0.5)
+
+
+def _accept(t: float, a: float, y: float, yknown: bool) -> bool:
+    """Precision-first acceptance: never accept a wrong-year match.
+
+    When the year is comparable it must agree (within tolerance) AND one of
+    title/author must corroborate. When the year cannot be compared, require
+    strong title evidence. This favors flagging over accepting a wrong paper.
+    """
+    if yknown:
+        return y == 1.0 and (t >= 0.45 or a >= 0.5)
+    return t >= 0.7 or (t >= 0.5 and a >= 0.6)
+
+
+def _summary_to_itemish(summ: dict) -> dict:
+    """Shape a PubMed esummary like a Crossref item for scoring."""
+    authors = [{"family": (a.get("name", "").split()[0] if a.get("name") else "")}
+               for a in summ.get("authors", [])]
+    year = ""
+    m = re.search(r"\b(19|20)\d{2}\b", summ.get("pubdate", ""))
+    if m:
+        year = m.group(0)
+    return {
+        "title": [summ.get("title", "")],
+        "author": authors,
+        "issued": {"date-parts": [[int(year)]]} if year else {},
+    }
 
 
 def _work_year(w: dict):

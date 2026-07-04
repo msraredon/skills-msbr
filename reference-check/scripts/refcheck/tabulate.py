@@ -34,11 +34,11 @@ _MERGE_COLS = ["citation", "marker", "section", "claim"]
 
 LIBRARY_COLUMNS = [
     "reference", "authors", "year", "title", "journal",
-    "volume", "issue", "pages", "doi", "pmid", "url",
+    "volume", "issue", "pages", "doi", "pmid", "url", "open_access",
     "existence", "confidence", "n_citations", "cited_by", "summary", "notes",
 ]
 
-_LINK_COLS = {"doi", "pmid", "url"}
+_LINK_COLS = {"doi", "pmid", "url", "open_access"}
 
 
 # --------------------------------------------------------------------------- #
@@ -202,6 +202,9 @@ def build_library_rows(references: dict[int, dict], citations: list,
             "doi": w.get("DOI", ""),
             "pmid": w.get("custom", {}).get("pmid", ""),
             "url": _best_url(w),
+            "open_access": (w.get("custom", {}).get("links", {}) or {}).get("oa_url")
+                           or (f"https://www.ncbi.nlm.nih.gov/pmc/articles/{w['custom']['pmcid']}/"
+                               if w.get("custom", {}).get("pmcid") else ""),
             "existence": _existence(w),
             "confidence": _confidence(w),
             "n_citations": len(cited_by.get(n, [])),

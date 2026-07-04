@@ -71,6 +71,26 @@ def parse_bibliography(document_xml: str) -> dict[int, BibEntry]:
     return entries
 
 
+def extract_title(raw: str) -> str:
+    """Best-effort title from a numbered 'Authors, Title. Journal Vol, pp (Year).'
+
+    Used to build a clean search query (querying by title is far more precise
+    than by the whole author+journal blob). Falls back to the raw string.
+    """
+    s = raw.strip()
+    s = re.sub(r"\(\d{4}[a-z]?\)\.?\s*$", "", s).strip().rstrip(".,; ")
+    # Drop the trailing "Journal Name Vol, pages" segment (after the last ". ").
+    parts = re.split(r"\.\s+", s)
+    core = ". ".join(parts[:-1]) if len(parts) >= 2 else s
+    # Strip a leading run of "I. N. Surname," authors (incl. "et al.").
+    core = re.sub(
+        r"^(?:[A-Z]\.(?:[-\s]?[A-Z]\.)*\s+[A-Za-z'’\-]+"
+        r"(?:,\s+|\s+and\s+|,?\s+et\s+al\.?,?\s*))+",
+        "", core).strip(" ,.;")
+    core = re.sub(r"\s+", " ", core)
+    return core or s
+
+
 def expand_marker(marker: str) -> list[int]:
     """Expand a rendered citation marker to reference numbers.
 

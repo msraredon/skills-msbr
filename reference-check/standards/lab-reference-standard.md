@@ -76,9 +76,13 @@ references. Columns:
 ## 5. Library table — "References (library)"
 
 One row per unique reference: number, authors, year, title, journal, volume,
-issue, pages, DOI, PMID, URL, existence, confidence, citation count, `cited_by`
-(which citations use it), summary, notes. Human-readable companion to the
-exported library files.
+issue, pages, DOI, PMID, URL, `open_access` (Unpaywall/PMC link when available),
+existence, confidence, citation count, `cited_by` (which citations use it),
+summary, notes. Human-readable companion to the exported library files.
+
+Open-access full text (PubMed Central, else Unpaywall) is fetched when available
+and used to judge appropriateness for specific claims; it is stored on the work
+and surfaced as the `open_access` link.
 
 ## 6. Flagging rules
 

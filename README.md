@@ -13,7 +13,7 @@ skill when a task matches its description.
 
 | skill | what it does | status |
 |-------|--------------|--------|
-| [`reference-check`](reference-check/) | Extract, verify (DOI/PMID/URL), and tabulate the references in a document; build a per-citation audit table + a per-reference library in five manager formats; judge whether each reference supports the sentence citing it. | Phase 1–2 (Word .docx; LaTeX/PDF planned) |
+| [`reference-check`](reference-check/) | Extract, verify (DOI/PMID/URL), and tabulate the references in a document; build a per-citation audit table + a per-reference library in five manager formats; judge whether each reference supports the sentence citing it. | v0.3.0 (Word .docx; LaTeX/PDF planned) |
 
 ## Planned skill domains
 
