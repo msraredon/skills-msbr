@@ -42,6 +42,90 @@ stance). Narrower and less battle-tested than mature general-purpose skills
 
 A realistic ceiling with 1–3 done is ~9/10 for this niche; 8.5+ overall once coverage and a measured appropriateness accuracy exist.
 
+## Roadmap: toward a general, trustworthy, lab-wide tool
+
+Ideas for evolving this from "excellent for numbered-citation Word docs" into a
+tool the whole lab — including naive users — can trust on any document. Grouped
+by goal; the scorecard's "top levers" are the near-term subset of this.
+
+### A. Truly general (ingest & reference types)
+- **LaTeX ingest** — parse `.tex` + `.bib`/`.bbl`; handle `\cite/\citep/\citet/
+  \autocite/\footcite` and biblatex; sentence = text around the cite. *(Flagship;
+  most technical users write here.)*
+- **PDF ingest** — extract text + reference list; use GROBID for structured
+  reference parsing (the scholarly-PDF gold standard); OCR fallback for scans.
+  Lets us check *other* labs' published papers, not just our own drafts.
+- **Markdown / plain text** — pandoc `[@key]` + CSL-JSON/bib, or a numbered /
+  author-year reference list.
+- **More citation managers** — Zotero (`ZOTERO_ITEM` CSL-JSON) and Mendeley
+  (`MENDELEY_CITATION`) Word field codes; direct readers for the Zotero and
+  EndNote SQLite libraries. Google Docs (export/API) — increasingly common.
+- **Citation styles** — author-year and footnote styles, not only numbered.
+- **Reference types beyond journal articles** — books (ISBN → OpenLibrary/Google
+  Books), chapters, preprints (bioRxiv/medRxiv/arXiv), datasets (DataCite),
+  software (Zenodo/CITATION.cff), clinical trials (NCT), patents, web pages
+  (with archived snapshot + accessed date).
+- **Reverse mode, fully wired** — library in (`.bib`/`.ris`/`.enw`/CSL-JSON/
+  EndNote XML/Zotero) → verified table out.
+
+### B. Widely applicable (beyond one lab's conventions)
+- **Any output CSL style** — use a CSL processor to emit/reformat the
+  bibliography in any journal style (APA, Vancouver, Nature, Cell…). Turns the
+  skill into a *reformatter*, not just a checker — "convert my refs to Cell style."
+- **Journal-requirement presets** — per-target rules (PMIDs required? DOIs?
+  max authors? abbreviated journals?) checked before submission.
+- **Broader identifier coverage** — add OpenAlex (huge, free), Semantic Scholar,
+  DataCite, arXiv, and ADS (astro) so non-PubMed/Crossref fields resolve too.
+- **Scale** — async/batched lookups and NCBI-key rate limits for 300+-reference
+  grants; a batch mode over a whole folder / the lab's back-catalog.
+
+### C. Trustworthy (verifiability & measured accuracy)
+- **Appropriateness eval harness** — a labeled gold set of (sentence, reference,
+  verdict); report precision/recall and guard against regressions. *(Flagship;
+  turns "trust me" into a number.)*
+- **Retraction & correction checks** — flag cited works that are retracted or
+  under an expression of concern (Crossref update-to / Retraction Watch). High
+  scientific-integrity value; naive users especially benefit.
+- **Quote-grounded support** — for a specific/quantitative claim, locate and
+  quote the supporting passage from OA full text, rather than just a verdict.
+  Reduces hallucinated "support" and gives the author receipts.
+- **Venue-quality flags** — predatory/questionable venues (DOAJ membership,
+  journal metrics) so weak sources surface.
+- **Bibliometric hygiene** — self-citation rate, reference-age distribution,
+  possible missing seminal works, over-reliance on one group.
+- **Provenance & reproducibility** — every field shows its source and which match
+  signals fired; a run manifest (timestamps, API versions) for auditability.
+- **Judgment robustness** — two independent appropriateness passes with
+  disagreement flagged, and explicit abstention when evidence is thin.
+
+### D. Lab-wide & naive-user-ready (UX, safety, distribution)
+- **One command, end to end** — `refcheck <doc>` runs ingest → verify → *and* the
+  appropriateness judgment automatically (model via API/SDK), so no one
+  orchestrates a prepare→judge→apply loop.
+- **A human-readable report** — an HTML/PDF summary with flagged items front and
+  center, color-coded, plain-English ("12 citations need your attention, and
+  why"), shareable with co-authors — not only a spreadsheet.
+- **In-document annotations** — optionally write Word/PDF comments back at each
+  flagged citation so the author sees issues *in context*. Big win for novices.
+- **Guardrails** — never overwrite the source; clearly named output folder;
+  friendly errors; auto-detect format; graceful degradation without `openpyxl`.
+- **Privacy-first & explicit** — unpublished manuscripts stay local; state plainly
+  what leaves the machine (only identifiers/titles to public APIs), with an
+  offline/`--no-resolve` mode for sensitive drafts.
+- **Shared lab assets** — a canonical, de-duplicated lab reference library that
+  grows across projects, and a shared API cache so refs resolve once for everyone.
+- **Onboarding** — `--demo` mode, a 2-minute quickstart, worked examples.
+- **Integration** — pre-submission checklist; a CI hook for LaTeX/Overleaf repos
+  that checks references on every commit.
+
+### Suggested sequencing
+1. LaTeX ingest + reverse mode (unlock the most users and inputs).
+2. Appropriateness eval harness + one-command automation (trust + UX together).
+3. Retraction checks + quote-grounded support (highest-integrity trust features).
+4. HTML report + in-document annotations (naive-user experience).
+5. PDF/GROBID ingest, broader identifiers, CSL restyling (breadth).
+6. Shared lab library/cache, CI integration (institutionalize it).
+
 ## Architecture (`scripts/refcheck/`)
 - `model.py` — canonical CSL-JSON work dict; identifier normalization
   (`normalize_doi`, `normalize_pmid`); `Citation` dataclass; `work_key` dedup.

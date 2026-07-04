@@ -92,6 +92,9 @@ sentence attachment, and bibliography linkage.
 
 ## Roadmap
 
+See the full, prioritized roadmap toward a general, trustworthy, lab-wide tool
+(with a maturity scorecard) in [CLAUDE.md](CLAUDE.md). In brief:
+
 - Ingest for LaTeX (`.bib` + `\cite`), Markdown, plain text, and PDF.
 - Reverse mode: a reference library in → verified library table out.
 - Library de-duplication / merge across documents.
