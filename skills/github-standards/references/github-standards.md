@@ -3,6 +3,12 @@
 Distilled from the Computational Lab Manual, Ch. 03. The manual is canonical;
 keep this in sync. Applies to any language (R, Python, other).
 
+> This describes the ideal workflow. The skill applies it **gently**: it keeps
+> Claude's own repo/commit output aligned and helps when asked. It never enforces
+> structure, naming, or process on anyone's work, and always helps people commit
+> and push whatever they have. Words like "must"/"mandatory" below reflect the
+> manual's language, not a gate the skill imposes.
+
 ## The fork model
 Three tiers, connected by commit -> push -> pull request:
 
@@ -33,11 +39,12 @@ local clone            ~/projects/<name>-AB  and/or  /hpc/path/<name>-AB
    ```
 
 ## Setting up a repository
-**PI / initializer:** create the repo from the **RaredonLab org**, initialize
-`main` + `dev`, set `dev` as default, add collaborators (Settings ->
-Collaborators). Prefer instantiating `RaredonLab/analysis-template` if present.
+**New RaredonLab origin (the PI, MSBR):** create the repo from the **RaredonLab
+org**, initialize `main` + `dev`, set `dev` as default, add collaborators
+(Settings -> Collaborators). Keep it loose — an almost-empty repo (even just a
+README) is a fine start; the structure below is optional and can be added later.
 
-**Member, forking + cloning (once per repo):**
+**Working from it, forking + cloning (once per repo):**
 1. On GitHub, open the RaredonLab origin repo (signed in to your account).
 2. **Fork** -> your account; rename to `<name>-AB`. Fork `dev` (and `main` only if
    your role needs it).

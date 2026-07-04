@@ -40,8 +40,8 @@ ln -s "$PWD/skills/reference-check" ~/.claude/skills/reference-check
 | skill | what it does | status |
 |-------|--------------|--------|
 | [`reference-check`](skills/reference-check/) | Extract, verify (DOI/PMID/URL), and tabulate the references in a document; build a per-citation audit table + a per-reference library in five manager formats; judge whether each reference supports the sentence citing it. | v0.3.0 (Word .docx; LaTeX/PDF planned) |
-| [`coding-standards`](skills/coding-standards/) | Write R/Python for lab data-science the lab way: standard header block, one-operation scripts, `functions/`, Quarto narration, lab naming; generate executable code you run locally against data you only describe. | v0.1.0 |
-| [`github-standards`](skills/github-standards/) | Set up and run version control the lab way: repo init/structure, the fork model (RaredonLab origin → personal fork → local), standard `.gitignore`/layout/`CLAUDE.md`, and the daily commit → push → PR-to-`dev` loop. GitHub Desktop friendly. | v0.1.0 |
+| [`coding-standards`](skills/coding-standards/) | Keeps Claude's own R/Python for lab data-science in the lab style (header block, one-operation scripts, `functions/`, Quarto, lab naming; executable code you run locally against described data). Gentle and optional — never enforced on your own work. | v0.2.0 |
+| [`github-standards`](skills/github-standards/) | Helps with lab version control and keeps Claude's own repo/commit/PR output aligned (the fork model, standard `.gitignore`/layout, commit → push → PR-to-`dev`). GitHub Desktop friendly, zero friction — helps you commit anything, never enforces. | v0.2.0 |
 
 ## Planned skill domains
 

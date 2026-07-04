@@ -1,6 +1,6 @@
 # coding-standards
 
-**Version 0.1.0**
+**Version 0.2.0**
 
 Write R or Python for Raredon Lab data-science work the lab way — code that is
 readable, reproducible, and transferable to collaborators, reviewers, and yourself
@@ -43,10 +43,13 @@ ecosystem tooling differs (renv↔uv, Roxygen↔docstrings). Parity table in
   thinking. Writing the plotting code you specify is fine.
 - It won't invent citations — use the `reference-check` skill for verified refs.
 
-## Consent
+## Gentle by design
 
-Standards are **offered, never forced**; your choice is recorded in the repo's
-`CLAUDE.md`. Work your own way whenever you want.
+These conventions mostly shape **Claude's own** generated code, so what you get
+back is already clean. They are never enforced on your work: if you write or ask
+for something messy, exploratory, non-linear, or off-standard, that's completely
+fine. It helps if you ask, and otherwise stays out of the way. Learning and
+curiosity come first.
 
 ## Files
 

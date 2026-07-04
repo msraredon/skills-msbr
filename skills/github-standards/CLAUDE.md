@@ -3,48 +3,53 @@
 Skill-specific working notes. Repo-wide conventions: [root CLAUDE.md](../../CLAUDE.md).
 Usage: [README.md](README.md). Contract: [SKILL.md](SKILL.md).
 
-## What this skill does
-Applies the Raredon Lab git/GitHub workflow (Manual Ch. 03) to a project: repo
-init/structure, the fork model, the daily commit->push->PR-to-dev loop. Offer,
-never force; record consent in the repo's `CLAUDE.md`.
+## What this skill is
+A gentle, background resource for the Raredon Lab git/GitHub workflow (Manual
+Ch. 03). Primary job: keep **Claude's own** repo/commit/PR output aligned with lab
+conventions. Secondary job: help a user with git when they ask. It is **not** an
+enforcement or compliance layer.
+
+## Behavior rules (the whole point — get these right)
+- **No friction, ever.** Help people commit and push whatever they have (broken,
+  non-linear, misnamed, unfinished). Never block, gate, rename, or restructure a
+  user's own work. Off-standard work is fine; they are learners.
+- **No nagging.** Mention a standard at most once, briefly, only if clearly useful;
+  then drop it. Default to quiet.
+- Standards steer *your* generated output and are available on request — nothing
+  more.
 
 ## Source of truth
 The **Computational Lab Manual, Ch. 03** is canonical
 (`RaredonLab/Computational-Lab-Manual`). `references/github-standards.md` is a
-distillation — if it and the manual disagree, the manual wins; update the ref.
+faithful distillation describing the ideal; the SKILL behavior layer applies it
+gently. If the reference drifts from the manual, fix the reference.
 
-## Key invariants (don't violate)
-- New origins come from the **RaredonLab org**, not personal accounts.
-- `dev` is the default/working branch; **`main` is PI-only and never a PR target**
-  from a fork.
-- Personal fork is named `<repo>-AB`; push there, PR to origin `dev`.
-- Self-approval only with no conflicts and no changes to shared infrastructure
-  (`functions/`, `CLAUDE.md`, `.gitignore`, `README.md`).
+## Safety invariants (the only hard lines)
 - Never commit data/credentials. Never force-push or rewrite shared history.
-- The human runs the outward push/PR from their own authenticated client.
+- Never push to `main` or PR to `main` from a fork without explicit PI (MSBR)
+  authorization. New RaredonLab origins are created from the org by the PI.
+- The human runs their own outward push/PR from an authenticated client.
 
-## Role handling
-PI/admin vs member changes the repo-init path (create-origin vs
-scaffold+PI-request). Determine role once; a user-level `~/.claude/raredon-lab.json`
-(`{"role","initials"}`) is the intended cache. MSBR = PI/admin.
+## No role logic
+Treat everyone as a user. Don't detect or branch on PI-vs-member. The only
+org-level actions (creating a RaredonLab origin, merging `dev`->`main`) are the
+PI's (MSBR); when they come up, just say "the PI (MSBR)" and offer the optional
+`assets/pi-request-template.md`. No `~/.claude/raredon-lab.json`, no role prompts.
 
-## Consent marker
-Repo `CLAUDE.md` carries `raredon-standards: github v0.1 (opted-in: yes|no)`.
-Read it before offering; write it after the user chooses.
+## Loose by default
+No template repo, no imposed structure. An almost-empty repo with an empty README
+is a fine start. Offer the standard layout / `.gitignore` / repo `CLAUDE.md` only
+if wanted. The optional repo `CLAUDE.md` (`assets/repo-CLAUDE.md.template`) can note
+that a repo is a lab project, which helps Claude steer its own output — but writing
+it is never required and there is no consent ledger.
 
 ## New-user ergonomics
-Most members use **GitHub Desktop**. Always give the GUI click-path (Clone, Fork,
-Commit to dev, Push origin, Contribute->PR) next to any CLI. Avoid assuming `gh`
-or SSH; offer them only as advanced accelerators.
-
-## Extending
-- If `RaredonLab/analysis-template` exists, prefer instantiating it over hand-
-  scaffolding (keeps structure current).
-- Optional future: a pre-commit hook checking header blocks / file naming (see
-  the reproducibility/pre-commit patterns in pedrohcgs/claude-code-my-workflow) —
-  keep it opt-in; new users should not hit friction.
+Most members use **GitHub Desktop**. Lead with the GUI click-path (Clone, Fork,
+Commit to dev, Push origin, Contribute->PR); offer CLI/`gh`/SSH only as advanced
+extras. The common request is just "help me save/share my work" — do that with zero
+friction.
 
 ## Roadmap / maturity
-v0.1.0 — first version: SKILL contract, standard reference + templates. Not yet:
-executable repo-scaffolding helper, `gh`-based origin creation for the PI, the
-template repo, pre-commit hooks. Re-score when those land.
+v0.2.0 — reframed to gentle/background/no-enforcement (dropped role logic, the
+template repo, and the consent-marker gating from v0.1). Reference + templates in
+place. Not built: any automation; that's intentional — automation risks friction.

@@ -3,6 +3,10 @@
 Distilled from the Computational Lab Manual, Ch. 04–06. The manual is canonical.
 Language-agnostic; R is primary, Python parity noted throughout.
 
+> This describes the ideal to aim for. The skill applies it **gently**: it shapes
+> Claude's own generated code and is here to teach if asked. It is never enforced
+> on anyone's work — messy, exploratory, and off-standard code are all fine.
+
 ## Philosophy
 The test for any code: *could someone not present when I wrote this reproduce my
 results, understand my reasoning, and build on my work?* Exploration is normal and

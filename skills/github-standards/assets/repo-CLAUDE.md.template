@@ -1,13 +1,14 @@
 <!--
-Template for a Raredon Lab repository's root CLAUDE.md.
-Replace <PLACEHOLDERS>. Keep the `raredon-standards:` marker line — the lab
-skills read it to detect a lab repo and remember the member's consent choice.
-Keep this file focused (manual Ch. 06): what, how, current state, open questions.
+Optional template for a Raredon Lab repository's root CLAUDE.md. Use it if you
+want; skip it if you don't. Replace <PLACEHOLDERS>. The `raredon-lab: true` line
+just lets Claude know this is lab work so it can keep its own output aligned — it
+is not a rule or a consent check. Keep this file focused (manual Ch. 06): what,
+how, current state, open questions.
 -->
 
 # CLAUDE.md — <PROJECT NAME>
 
-raredon-standards: coding v0.1, github v0.1 (opted-in: yes)
+raredon-lab: true
 
 ## What
 <One or two sentences: the scientific goal of this repository and its scope.>
