@@ -5,15 +5,41 @@ Raredon Lab — reusable, self-contained capabilities that Claude can invoke to 
 real scientific work. Built for personal use and shared with the lab; changes
 flow upstream to the lab fork via pull requests.
 
-Each skill is a top-level directory with a `SKILL.md` (what it does + how Claude
-should run it), bundled scripts, and its own docs and tests. Claude loads a
-skill when a task matches its description.
+Each skill is a directory under `skills/` with a `SKILL.md` (what it does + how
+Claude should run it), bundled scripts, and its own docs and tests. Claude loads
+a skill when a task matches its description.
+
+This repo is also a **Claude Code plugin marketplace** — see
+[Installing](#installing) and, for lab members, [LAB-ONBOARDING.md](LAB-ONBOARDING.md).
+
+## Installing
+
+**For your whole lab (recommended)** — install the plugin bundle once; updates
+arrive with `git pull` / a marketplace refresh:
+
+```
+/plugin marketplace add https://github.com/<your-lab>/skills-msbr
+/plugin install raredon-lab@skills-msbr
+```
+
+Then start a new session and just describe the task (skills auto-trigger by their
+description) — e.g. *"check and tabulate the references in Manuscript.docx."*
+Full step-by-step, including for non-technical users, is in
+[LAB-ONBOARDING.md](LAB-ONBOARDING.md).
+
+**Personal (single machine, editable)** — symlink a skill into your user skills
+folder so it's live everywhere and tracks your local edits:
+
+```
+mkdir -p ~/.claude/skills
+ln -s "$PWD/skills/reference-check" ~/.claude/skills/reference-check
+```
 
 ## Skills
 
 | skill | what it does | status |
 |-------|--------------|--------|
-| [`reference-check`](reference-check/) | Extract, verify (DOI/PMID/URL), and tabulate the references in a document; build a per-citation audit table + a per-reference library in five manager formats; judge whether each reference supports the sentence citing it. | v0.3.0 (Word .docx; LaTeX/PDF planned) |
+| [`reference-check`](skills/reference-check/) | Extract, verify (DOI/PMID/URL), and tabulate the references in a document; build a per-citation audit table + a per-reference library in five manager formats; judge whether each reference supports the sentence citing it. | v0.3.0 (Word .docx; LaTeX/PDF planned) |
 
 ## Planned skill domains
 
@@ -41,13 +67,19 @@ and keyless APIs, and run artifacts kept out of git.
 skills-msbr/
   README.md            ← this file
   CLAUDE.md            ← working notes for Claude in this repo
-  <skill-name>/
-    SKILL.md           ← skill definition (name + description + workflow)
-    README.md          ← human-facing usage
-    scripts/           ← bundled code
-    standards/         ← editable lab standards the skill follows
-    references/        ← reference notes for the skill
-    tests/             ← standalone tests
+  LAB-ONBOARDING.md    ← hand-to-a-labmate install + usage guide
+  .claude-plugin/
+    marketplace.json   ← makes this repo an installable marketplace
+    plugin.json        ← the "raredon-lab" plugin bundling all skills
+  skills/
+    <skill-name>/
+      SKILL.md         ← skill definition (name + description + workflow)
+      CLAUDE.md        ← skill-specific working notes
+      README.md        ← human-facing usage
+      scripts/         ← bundled code
+      standards/       ← editable lab standards the skill follows
+      references/      ← reference notes for the skill
+      tests/           ← standalone tests
 ```
 
 ## Sharing

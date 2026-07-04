@@ -11,13 +11,22 @@ funding-opportunity research, grantsmanship, and other wet/dry lab tasks.**
 
 ## How skills are structured
 
-Each skill is a top-level directory:
+This repo is a **Claude Code plugin marketplace**: `.claude-plugin/marketplace.json`
+lists one plugin (`raredon-lab`, defined by `.claude-plugin/plugin.json`) whose
+`source` is the repo root, so every skill under `skills/` ships in that one plugin.
+Lab members install with `/plugin marketplace add <fork>` + `/plugin install
+raredon-lab@skills-msbr` (see [LAB-ONBOARDING.md](LAB-ONBOARDING.md)). Adding a new
+skill under `skills/` automatically includes it in the plugin — no manifest edit
+needed unless you split it into a separate plugin.
+
+Each skill is a directory under `skills/`:
 
 ```
-<skill-name>/
+skills/<skill-name>/
   SKILL.md       required. YAML frontmatter (name, description) + workflow.
                  The description is what triggers the skill — make it specific
                  about what the skill does and when to use it.
+  CLAUDE.md      skill-specific working notes (+ maturity scorecard / roadmap).
   README.md      human-facing usage.
   scripts/       bundled code (a small importable package + a CLI entry point).
   standards/     editable lab standards the skill enforces (source of truth).
@@ -73,8 +82,8 @@ conventions here; keep skill internals in the skill's `CLAUDE.md`.
 ### reference-check
 Extract, verify, and tabulate references in a scholarly document; judge
 appropriateness per (citation, reference) pair. Full working notes in
-[reference-check/CLAUDE.md](reference-check/CLAUDE.md); usage in
-[reference-check/README.md](reference-check/README.md); contract in
-[reference-check/SKILL.md](reference-check/SKILL.md). Key lesson baked into its
+[skills/reference-check/CLAUDE.md](skills/reference-check/CLAUDE.md); usage in
+[skills/reference-check/README.md](skills/reference-check/README.md); contract in
+[skills/reference-check/SKILL.md](skills/reference-check/SKILL.md). Key lesson baked into its
 design: **references may live in the rendered bibliography, not the citation
 fields — read both, and link by reference number.**

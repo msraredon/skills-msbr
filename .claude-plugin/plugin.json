@@ -1,0 +1,10 @@
+{
+  "name": "raredon-lab",
+  "description": "Raredon Lab skill suite for scientific work. Bundles the lab's Claude Code skills; skills auto-trigger when a task matches their description. Currently: reference-check (extract, verify via DOI/PMID, and tabulate the references in a scholarly document; build a reference library and judge citation appropriateness).",
+  "version": "0.1.0",
+  "author": {
+    "name": "Micha Sam Brickman Raredon",
+    "email": "michasam.raredon@yale.edu"
+  },
+  "keywords": ["science", "references", "citations", "bibliography", "research", "lab"]
+}

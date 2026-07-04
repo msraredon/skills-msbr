@@ -1,7 +1,7 @@
 # CLAUDE.md — reference-check
 
 Skill-specific working notes. For repo-wide conventions see the
-[root CLAUDE.md](../CLAUDE.md). For usage see [README.md](README.md); for the
+[root CLAUDE.md](../../CLAUDE.md). For usage see [README.md](README.md); for the
 skill contract see [SKILL.md](SKILL.md).
 
 ## What this skill does
