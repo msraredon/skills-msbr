@@ -18,8 +18,8 @@ This repo is also a **Claude Code plugin marketplace** — see
 arrive with `git pull` / a marketplace refresh:
 
 ```
-/plugin marketplace add https://github.com/<your-lab>/skills-msbr
-/plugin install raredon-lab@skills-msbr
+/plugin marketplace add https://github.com/RaredonLab/skills
+/plugin install lab-skills@raredon-lab
 ```
 
 Then start a new session and just describe the task (skills auto-trigger by their

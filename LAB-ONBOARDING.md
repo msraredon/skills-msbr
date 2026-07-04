@@ -18,12 +18,9 @@ You do **not** need to understand any code. You just describe what you want.
 In a Claude Code session, run these two commands (they start with `/`):
 
 ```
-/plugin marketplace add https://github.com/RaredonLab/skills-msbr
-/plugin install raredon-lab@skills-msbr
+/plugin marketplace add https://github.com/RaredonLab/skills
+/plugin install lab-skills@raredon-lab
 ```
-
-> Replace the URL with the lab's actual repository if it differs. Ask the person
-> who sent you this if you're unsure.
 
 Then **start a new session** (close and reopen, or run `claude` again). That's it
 — the skills are now available in every project on your computer, and refresh
@@ -72,7 +69,7 @@ the document.
 When the lab improves a skill:
 
 ```
-/plugin marketplace update skills-msbr
+/plugin marketplace update raredon-lab
 ```
 
 Then start a new session.

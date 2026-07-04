@@ -1,5 +1,5 @@
 {
-  "name": "skills-msbr",
+  "name": "raredon-lab",
   "owner": {
     "name": "Micha Sam Brickman Raredon",
     "email": "michasam.raredon@yale.edu"
@@ -10,7 +10,7 @@
   },
   "plugins": [
     {
-      "name": "raredon-lab",
+      "name": "lab-skills",
       "source": ".",
       "description": "Raredon Lab skill suite. Currently: reference-check — extract, verify (DOI/PMID/URL), and tabulate the references in a document; build a reference library in five manager formats; judge whether each reference supports the sentence citing it.",
       "version": "0.1.0",

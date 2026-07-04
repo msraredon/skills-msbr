@@ -14,8 +14,8 @@ funding-opportunity research, grantsmanship, and other wet/dry lab tasks.**
 This repo is a **Claude Code plugin marketplace**: `.claude-plugin/marketplace.json`
 lists one plugin (`raredon-lab`, defined by `.claude-plugin/plugin.json`) whose
 `source` is the repo root, so every skill under `skills/` ships in that one plugin.
-Lab members install with `/plugin marketplace add <fork>` + `/plugin install
-raredon-lab@skills-msbr` (see [LAB-ONBOARDING.md](LAB-ONBOARDING.md)). Adding a new
+Lab members install with `/plugin marketplace add https://github.com/RaredonLab/skills`
++ `/plugin install lab-skills@raredon-lab` (see [LAB-ONBOARDING.md](LAB-ONBOARDING.md)). Adding a new
 skill under `skills/` automatically includes it in the plugin — no manifest edit
 needed unless you split it into a separate plugin.
 
