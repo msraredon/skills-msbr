@@ -61,15 +61,20 @@ Each skill is a top-level directory:
   upstream lab fork only when the user asks. Default/main branch is `dev`.
 - Co-author commits: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
 
+## Documentation structure
+
+Nested: this root `README.md` + `CLAUDE.md` cover the whole repo; **each skill
+subfolder has its own `README.md` (human usage) and `CLAUDE.md` (skill-specific
+working notes)**, plus a `SKILL.md` (the skill contract). Keep repo-wide
+conventions here; keep skill internals in the skill's `CLAUDE.md`.
+
 ## Skills in this repo
 
 ### reference-check
-Extract, verify, and tabulate references in a scholarly document. Reads Word
-citation fields (including EndNote embedded records) **and** the rendered
-numbered bibliography, unifying them by reference number; verifies each via
-Crossref + PubMed (DOI↔PMID cross-fill, abstracts); judges appropriateness per
-(citation, reference) pair. Outputs a grouped per-citation audit table, a
-per-reference library table, and a reference library in five formats. See
+Extract, verify, and tabulate references in a scholarly document; judge
+appropriateness per (citation, reference) pair. Full working notes in
+[reference-check/CLAUDE.md](reference-check/CLAUDE.md); usage in
+[reference-check/README.md](reference-check/README.md); contract in
 [reference-check/SKILL.md](reference-check/SKILL.md). Key lesson baked into its
 design: **references may live in the rendered bibliography, not the citation
-fields — read both.**
+fields — read both, and link by reference number.**

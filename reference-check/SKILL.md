@@ -74,9 +74,19 @@ by the script — they are yours to fill.
 Flags to know: `--no-resolve` (offline; embedded metadata only),
 `--cache PATH` (reuse HTTP responses across runs).
 
-### 2. Fill the judgment columns (your job)
-Load `<stem>_refcheck.json`. It has `citations` (each with `ref_numbers` and a
-`sentence`) and `references` (keyed by number, each with metadata + `abstract`).
+### 2. Fill the judgment columns (your job — the hybrid step)
+Use the appraisal helper to assemble the work, then judge, then write back:
+
+```bash
+# assemble each citation with its references' abstracts:
+python3 scripts/refcheck_appraise.py prepare <stem>_refcheck.json -o appraise_input.json
+# ... you read appraise_input.json and write judgments.json (schema in that script) ...
+python3 scripts/refcheck_appraise.py apply <stem>_refcheck.json judgments.json -o <outdir>
+```
+
+`apply` fills the columns, regenerates the CSV/XLSX, escalates the flag for any
+pair below `Supports`, and embeds the judgments back into `<stem>_refcheck.json`.
+
 For each (citation, reference) pair, read the sentence and the reference's
 abstract (and title/journal), then produce:
 

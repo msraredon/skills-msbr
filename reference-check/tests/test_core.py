@@ -145,6 +145,38 @@ def test_records_from_fieldcode_multiple_cites():
     assert len(recs) == 1 and recs[0]["DOI"] == "10.1000/abc"
 
 
+def test_judgments_fill_and_escalate_flag():
+    """Applying judgments fills columns and flags non-Supports pairs."""
+    from refcheck.model import Citation
+    from refcheck import tabulate
+    refs = {
+        16: make_work(title="Stress review", doi="10.1000/x", year="2007"),
+        55: make_work(title="Monocytes paper", doi="10.1000/y", year="2017"),
+    }
+    for w in refs.values():
+        w.setdefault("custom", {})["verification"] = {"status": "verified", "doi_verified": True}
+    cits = [
+        Citation(id="C8", marker="(16)", sentence="A homeostatic claim.", ref_numbers=[16]),
+        Citation(id="C31", marker="(55)", sentence="A tension/TGFb claim.", ref_numbers=[55]),
+    ]
+    judgments = {
+        "references": {"16": {"summary": "Stress concepts."},
+                       "55": {"summary": "Monocytes promote regen."}},
+        "pairs": {
+            "C8|16": {"connection": "matches", "appropriateness": "Supports"},
+            "C31|55": {"connection": "off-topic", "appropriateness": "Mismatch"},
+        },
+    }
+    rows = tabulate.build_audit_rows(cits, refs, judgments)
+    by = {(r["citation"] or "C31"): r for r in rows}
+    supp = [r for r in rows if r["reference"] == "16"][0]
+    mism = [r for r in rows if r["reference"] == "55"][0]
+    assert supp["appropriateness"] == "Supports" and supp["flag"] == "FALSE"
+    assert supp["ref_summary"] == "Stress concepts."
+    assert mism["appropriateness"] == "Mismatch" and mism["flag"] == "TRUE"
+    assert "appropriateness: Mismatch" in mism["flag_reason"]
+
+
 def run():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     passed = 0

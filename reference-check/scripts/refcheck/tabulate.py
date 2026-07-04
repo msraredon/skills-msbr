@@ -114,14 +114,26 @@ def _flag(work: Optional[dict]) -> tuple[str, str]:
 # --------------------------------------------------------------------------- #
 # row builders
 # --------------------------------------------------------------------------- #
-def build_audit_rows(citations: list, references: dict[int, dict]) -> list[dict[str, Any]]:
+def build_audit_rows(citations: list, references: dict[int, dict],
+                     judgments: Optional[dict] = None) -> list[dict[str, Any]]:
+    """Build the per-citation audit rows.
+
+    ``judgments`` (optional) carries the model's appropriateness output:
+      {"references": {"16": {"summary": ...}},
+       "pairs": {"C1|16": {"connection": ..., "appropriateness": ...}}}
+    When present, it fills ref_summary/connection/appropriateness and escalates
+    the flag for any pair rated below "Supports".
+    """
+    jrefs = (judgments or {}).get("references", {})
+    jpairs = (judgments or {}).get("pairs", {})
     rows: list[dict[str, Any]] = []
     for c in citations:
         cd = c.to_dict() if hasattr(c, "to_dict") else c
         nums = cd.get("ref_numbers") or []
+        cid = cd["id"]
         base = {
-            "_group": cd["id"],
-            "citation": cd["id"],
+            "_group": cid,
+            "citation": cid,
             "marker": cd["marker"],
             "section": _short_section(cd.get("section")),
             "claim": cd["sentence"],
@@ -136,6 +148,12 @@ def build_audit_rows(citations: list, references: dict[int, dict]) -> list[dict[
         for n in nums:
             w = references.get(n)
             flag, reason = _flag(w)
+            pj = jpairs.get(f"{cid}|{n}", {})
+            appr = pj.get("appropriateness", "")
+            reasons = [reason] if reason else []
+            if appr and appr.lower() != "supports":
+                flag = "TRUE"
+                reasons.append(f"appropriateness: {appr}")
             row = dict(base)
             row.update({
                 "reference": str(n),
@@ -148,18 +166,20 @@ def build_audit_rows(citations: list, references: dict[int, dict]) -> list[dict[
                 "url": _best_url(w),
                 "existence": _existence(w),
                 "confidence": _confidence(w),
-                "ref_summary": "",       # model
-                "connection": "",        # model
-                "appropriateness": "",   # model
+                "ref_summary": jrefs.get(str(n), {}).get("summary", ""),
+                "connection": pj.get("connection", ""),
+                "appropriateness": appr,
                 "flag": flag,
-                "flag_reason": reason,
-                "notes": "",
+                "flag_reason": "; ".join(reasons),
+                "notes": pj.get("notes", ""),
             })
             rows.append(row)
     return rows
 
 
-def build_library_rows(references: dict[int, dict], citations: list) -> list[dict[str, Any]]:
+def build_library_rows(references: dict[int, dict], citations: list,
+                       judgments: Optional[dict] = None) -> list[dict[str, Any]]:
+    jrefs = (judgments or {}).get("references", {})
     cited_by: dict[int, list[str]] = {}
     for c in citations:
         cd = c.to_dict() if hasattr(c, "to_dict") else c
@@ -186,7 +206,7 @@ def build_library_rows(references: dict[int, dict], citations: list) -> list[dic
             "confidence": _confidence(w),
             "n_citations": len(cited_by.get(n, [])),
             "cited_by": ", ".join(cited_by.get(n, [])),
-            "summary": "",              # model
+            "summary": jrefs.get(str(n), {}).get("summary", ""),
             "notes": "",
         })
     return rows
