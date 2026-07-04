@@ -1,0 +1,10 @@
+# reference-check dependencies
+#
+# The pipeline uses only the Python standard library except for the .xlsx table.
+# CSV + all reference-library formats work with no third-party packages.
+
+openpyxl>=3.1        # .xlsx audit/library workbook with hyperlinks (optional)
+
+# Planned (later phases):
+#   pandoc (system binary)  – LaTeX / Markdown ingest
+#   pdfminer.six or GROBID  – PDF ingest

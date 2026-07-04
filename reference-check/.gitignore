@@ -1,0 +1,7 @@
+# Run artifacts — never commit generated tables/libraries or cached API responses
+*_references/
+.http_cache.json
+**/__pycache__/
+*.pyc
+# Local example outputs
+examples/
