@@ -9,6 +9,39 @@ Extract → verify → tabulate references in a scholarly document, and judge
 whether each reference supports the sentence citing it. Deterministic Python does
 parsing/verification/exports; the model does the appropriateness judgment.
 
+## Maturity scorecard
+
+> A candid self-assessment for advanced technical/scientific users, kept here so
+> it can be revisited and driven upward. **Update the date/version and re-score
+> whenever the skill materially changes.** Scores are /10; be honest, not kind —
+> an inflated score hides the next improvement.
+
+**Last scored: 2026-07-04 · v0.3.0 · Overall 7.5 / 10**
+
+Frame of reference: well above a typical "prompt + helper script" skill (real
+domain logic, external-API verification, a genuine refuse-to-guess correctness
+stance). Narrower and less battle-tested than mature general-purpose skills
+(`docx`/`pdf`/`xlsx`): higher domain rigor, lower breadth and automation.
+
+| Dimension | Score | Why / what would raise it |
+|-----------|:----:|---------------------------|
+| Problem value / impact | 9 | Citation integrity is high-stakes and underserved. Ceiling only if it spans more of the writing workflow. |
+| Correctness & scientific rigor | 8.5 | Precision-first, year-gated, cross-verified, refuses to guess; caught a real mis-citation. Held back: appropriateness accuracy is **unbenchmarked**; ~8% of refs are text-less (title-only judgment). |
+| Input coverage / robustness | 5 | **.docx only**, numbered styles only, one EndNote flavor truly tested. No LaTeX/PDF/Markdown, no author-year, reverse mode unwired, thin non-journal (book/preprint/dataset/software) handling. This is the biggest gap. |
+| Automation / workflow UX | 6 | One-command deterministic pipeline is smooth; appropriateness is a 3-step prepare→judge→apply loop needing the model each run, and it's slow-ish at grant scale (100s of refs). |
+| Architecture & maintainability | 8.5 | Clean CSL-JSON canonical model, layered modules, standards-as-source-of-truth, easy to extend. |
+| Testing & validation | 6.5 | Good unit tests for the tricky logic + real-manuscript validation, but **no eval harness for appropriateness accuracy**, no CI, single test corpus. |
+| Documentation | 8.5 | Nested README/CLAUDE/SKILL + editable standard; thorough. |
+
+**Top levers to raise the overall score (highest-ROI first):**
+1. **LaTeX + PDF ingest** (coverage 5→8): unlocks most technical users; biggest single lever.
+2. **An appropriateness eval harness** (rigor + testing): a labeled set of (sentence, reference, verdict) to measure precision/recall of the judgment and catch regressions — turns "trust me" into a number.
+3. **Fully automated appropriateness** in one command (UX 6→8), with OA full text used by default for specific claims.
+4. **Reverse mode + library dedup/merge** (coverage): library-in → table-out, and cross-document de-duplication for lab-wide use.
+5. **Broaden reference types & citation styles** (author-year, books, preprints, datasets, software).
+
+A realistic ceiling with 1–3 done is ~9/10 for this niche; 8.5+ overall once coverage and a measured appropriateness accuracy exist.
+
 ## Architecture (`scripts/refcheck/`)
 - `model.py` — canonical CSL-JSON work dict; identifier normalization
   (`normalize_doi`, `normalize_pmid`); `Citation` dataclass; `work_key` dedup.
