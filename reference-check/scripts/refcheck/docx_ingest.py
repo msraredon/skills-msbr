@@ -1,16 +1,19 @@
-"""Ingest a Word (.docx) document into citations + works.
+"""Ingest a Word (.docx) document into citations + a numbered reference registry.
 
-Word stores citations as *fields*. An EndNote citation is a (possibly nested)
-field whose code text (``w:instrText``) is ``ADDIN EN.CITE ...`` and whose
-*result* (the run text after ``fldChar separate``) is the rendered marker the
-reader sees, e.g. a superscript ``16``. Fields nest: ``EN.CITE`` wraps an inner
-``EN.CITE.DATA`` field that actually carries the record XML, so we must respect
-begin/separate/end nesting rather than concatenate all instrText globally.
+Word stores citations as (often nested) fields; an EndNote citation's code text
+(``w:instrText``) is ``ADDIN EN.CITE ...`` and its *result* is the rendered
+marker the reader sees (e.g. superscript ``16`` or ``8-10``). We respect
+begin/separate/end nesting, replace each top-level citation with a placeholder
+in a linear text stream, then segment into sentences so every citation attaches
+to its sentence.
 
-The parser produces a linear text stream in which each top-level citation field
-is replaced by a placeholder token. We then segment that stream into sentences
-so every citation can be attached to the sentence it sits in — the unit the
-appropriateness check operates on.
+Reference metadata comes from two sources, unified by **reference number**:
+  1. records embedded in some citation fields (authoritative DOI/PMID), and
+  2. the rendered numbered bibliography (``EN.REFLIST`` / EndNoteBibliography),
+     which is usually the only complete source.
+An in-text marker (``8-10``) expands to reference numbers (8, 9, 10); those key
+into the registry. Where a field embeds records, they are paired positionally to
+the marker's numbers to seed authoritative identifiers.
 """
 from __future__ import annotations
 
@@ -19,13 +22,14 @@ import zipfile
 from dataclasses import dataclass, field as dc_field
 from typing import Any, Iterator, Optional
 
+from .bibliography import parse_bibliography, expand_marker, BibEntry
 from .endnote import records_from_fieldcode
-from .model import Citation, work_key
+from .model import Citation, make_work
 from .sentences import split_sentences
 
-# Sentinel wrapping a citation index, unlikely to occur in real text.
 _CITE_OPEN = ""
 _CITE_CLOSE = ""
+_PLACEHOLDER_RE = re.compile(_CITE_OPEN + r"(\d+)" + _CITE_CLOSE)
 
 
 def _placeholder(idx: int) -> str:
@@ -44,13 +48,11 @@ def _unescape(s: str) -> str:
 @dataclass
 class _Frame:
     code: str = ""
-    phase: str = "code"                 # "code" until fldChar separate, then "result"
+    phase: str = "code"
     result: list[str] = dc_field(default_factory=list)
     child_records: list[dict] = dc_field(default_factory=list)
 
 
-# Ordered token stream from document.xml: paragraph breaks, field boundaries,
-# field-code text, style boundaries, and visible runs.
 _TOKEN_RE = re.compile(
     r'(?P<pbreak></w:p>)'
     r'|<w:fldChar[^>]*w:fldCharType="(?P<fld>begin|separate|end)"[^>]*/?>'
@@ -80,35 +82,64 @@ def _iter_tokens(xml: str) -> Iterator[tuple[str, str]]:
 
 
 def _is_citation_field(code: str) -> bool:
-    return "EN.CITE" in code or "CITAVI" in code or "MENDELEY_CITATION" in code
+    return "EN.CITE" in code and "EN.REFLIST" not in code
+
+
+def _is_reflist_field(code: str) -> bool:
+    return "EN.REFLIST" in code
 
 
 @dataclass
 class DocxIngest:
-    text: str                       # linear text with citation placeholders
+    text: str
     citations: list[Citation]
-    works: dict[str, dict[str, Any]]
-    raw_citation_fields: list[dict]  # per top-level citation: marker + works
+    references: dict[int, dict[str, Any]]   # reference number -> canonical work
+    bibliography: dict[int, BibEntry]
 
     def to_dict(self) -> dict[str, Any]:
+        cited = {n for c in self.citations for n in c.ref_numbers}
         return {
             "source_type": "docx",
             "citations": [c.to_dict() for c in self.citations],
-            "works": list(self.works.values()),
+            "references": {str(n): w for n, w in sorted(self.references.items())},
             "stats": {
                 "n_citations": len(self.citations),
-                "n_works": len(self.works),
-                "n_unresolved_citations": sum(1 for c in self.citations if not c.resolved),
+                "n_references": len(self.references),
+                "n_refs_cited": len(cited),
+                "n_unresolved_citations":
+                    sum(1 for c in self.citations if not c.resolved),
             },
         }
 
 
+def _work_from_bibentry(num: int, be: BibEntry) -> dict[str, Any]:
+    w = make_work(year=be.year, doi=be.doi, source="bibliography")
+    w["id"] = f"ref:{num}"
+    w["custom"]["ref_number"] = num
+    w["custom"]["bib_raw"] = be.raw
+    return w
+
+
+def _attach_embedded(work_registry: dict[int, dict], num: int, rec: dict) -> None:
+    """Seed reference ``num`` with an authoritative embedded record."""
+    rec = dict(rec)
+    rec["id"] = f"ref:{num}"
+    rec.setdefault("custom", {})
+    # preserve the bibliography raw string if we had one
+    prev = work_registry.get(num, {})
+    if prev.get("custom", {}).get("bib_raw"):
+        rec["custom"]["bib_raw"] = prev["custom"]["bib_raw"]
+    rec["custom"]["ref_number"] = num
+    rec["custom"]["source"] = "endnote-embedded"
+    work_registry[num] = rec
+
+
 def parse_document_xml(xml: str) -> DocxIngest:
     stack: list[_Frame] = []
-    stream: list[str] = []          # top-level output tokens (text + placeholders)
-    para_styles: list[str] = []     # style of each paragraph, in order
+    stream: list[str] = []
+    para_styles: list[str] = []
     cur_style: Optional[str] = None
-    raw_fields: list[dict] = []     # each top-level citation field's payload
+    raw_fields: list[dict] = []
 
     def out(s: str) -> None:
         (stack[-1].result if stack else stream).append(s)
@@ -134,16 +165,15 @@ def parse_document_xml(xml: str) -> DocxIngest:
                 records = records_from_fieldcode(f.code) + f.child_records
                 result_text = "".join(f.result)
                 if stack:
-                    # Nested field: bubble records up, splice visible text in.
                     stack[-1].child_records.extend(records)
                     stack[-1].result.append(result_text)
                 elif _is_citation_field(f.code):
                     idx = len(raw_fields)
-                    raw_fields.append({"marker": result_text.strip(), "works": records})
+                    raw_fields.append({"marker": result_text.strip(), "records": records})
                     stream.append(_placeholder(idx))
+                elif _is_reflist_field(f.code):
+                    pass  # bibliography parsed separately from the raw xml
                 else:
-                    # Non-citation field (TOC, REF, hyperlink, EN.REFLIST...):
-                    # keep its rendered text in the flow.
                     stream.append(result_text)
         elif kind == "INSTR":
             if stack and stack[-1].phase == "code":
@@ -152,18 +182,12 @@ def parse_document_xml(xml: str) -> DocxIngest:
             out(val)
 
     text = "".join(stream)
-    citations, works = _link_citations(text, raw_fields, para_styles)
-    return DocxIngest(
-        text=text,
-        citations=citations,
-        works=works,
-        raw_citation_fields=raw_fields,
-    )
+    bib = parse_bibliography(xml)
+    citations, references = _link(text, raw_fields, para_styles, bib)
+    return DocxIngest(text=text, citations=citations, references=references, bibliography=bib)
 
 
 def _paragraph_of(offset: int, para_offsets: list[int]) -> int:
-    """Index of the paragraph containing a character offset."""
-    lo, hi = 0, len(para_offsets) - 1
     idx = 0
     for i, start in enumerate(para_offsets):
         if offset >= start:
@@ -173,54 +197,53 @@ def _paragraph_of(offset: int, para_offsets: list[int]) -> int:
     return idx
 
 
-def _link_citations(
-    text: str, raw_fields: list[dict], para_styles: list[str]
-) -> tuple[list[Citation], dict[str, dict]]:
-    # Precompute paragraph start offsets (paragraphs separated by '\n').
-    para_offsets = [0]
-    for m in re.finditer("\n", text):
-        para_offsets.append(m.end())
+def _link(text, raw_fields, para_styles, bib):
+    para_offsets = [0] + [m.end() for m in re.finditer("\n", text)]
 
-    # Deduplicate works across the whole document (per-work library view).
-    works: dict[str, dict] = {}
+    # 1) reference registry seeded from the rendered bibliography
+    references: dict[int, dict] = {n: _work_from_bibentry(n, be) for n, be in bib.items()}
 
+    # 2) overlay authoritative embedded records, paired to marker numbers
+    for rf in raw_fields:
+        nums = expand_marker(rf["marker"])
+        recs = rf["records"]
+        for i, rec in enumerate(recs):
+            if i < len(nums):
+                _attach_embedded(references, nums[i], rec)
+            else:
+                # extra record without a numbered slot: index by a synthetic key
+                references.setdefault(-(len(references) + 1), rec)
+
+    # 3) build citations, attach to sentences
     citations: list[Citation] = []
-    # Walk placeholders in order; assign each to its enclosing sentence.
-    sentences = split_sentences(text, placeholder_re=re.compile(
-        re.escape(_CITE_OPEN) + r"\d+" + re.escape(_CITE_CLOSE)))
-
-    # Map placeholder index -> owning sentence text (cleaned of placeholders).
+    sentences = split_sentences(text, placeholder_re=_PLACEHOLDER_RE)
+    order = 0
     for sent in sentences:
-        for m in re.finditer(
-            re.escape(_CITE_OPEN) + r"(\d+)" + re.escape(_CITE_CLOSE), sent.raw
-        ):
+        for m in _PLACEHOLDER_RE.finditer(sent.raw):
             idx = int(m.group(1))
             rf = raw_fields[idx]
-            work_ids = []
-            for w in rf["works"]:
-                key = w["id"]
-                works.setdefault(key, w)
-                work_ids.append(key)
+            nums = expand_marker(rf["marker"])
             para_idx = _paragraph_of(sent.start, para_offsets)
             section = para_styles[para_idx] if 0 <= para_idx < len(para_styles) else None
-            resolved = any(
-                works[k].get("DOI") or works[k].get("custom", {}).get("pmid")
-                for k in work_ids
-            )
-            citations.append(
-                Citation(
-                    id=f"c{idx+1:03d}",
-                    marker=rf["marker"],
-                    sentence=sent.clean,
-                    work_ids=work_ids,
-                    paragraph_index=para_idx,
-                    section=section,
-                    resolved=resolved,
-                    note=None if work_ids else "no embedded metadata; needs library or resolution",
-                )
-            )
-    citations.sort(key=lambda c: c.id)
-    return citations, works
+            missing = [n for n in nums if n not in references]
+            note = None
+            if not nums:
+                note = "non-numeric marker; link via reference library"
+            elif missing:
+                note = f"reference number(s) not in bibliography: {missing}"
+            order += 1
+            citations.append(Citation(
+                id=f"C{order}",
+                marker=rf["marker"],
+                sentence=sent.clean,
+                ref_numbers=nums,
+                work_ids=[references[n]["id"] for n in nums if n in references],
+                paragraph_index=para_idx,
+                section=section,
+                resolved=bool(nums) and not missing,
+                note=note,
+            ))
+    return citations, references
 
 
 def ingest_docx(path: str) -> DocxIngest:

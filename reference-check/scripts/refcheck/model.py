@@ -133,22 +133,29 @@ def parse_author(raw: str) -> dict[str, str]:
 
 @dataclass
 class Citation:
-    """One in-text citation occurrence."""
+    """One in-text citation occurrence: a marker + sentence linked to references.
+
+    ``ref_numbers`` are the bibliography reference numbers this marker points at
+    (e.g. marker "8-10" -> [8, 9, 10]); they key into the reference registry.
+    ``work_ids`` mirror those as canonical work ids for convenience.
+    """
 
     id: str
-    marker: str                 # rendered in-text text, e.g. "16" or "16,33"
+    marker: str                 # rendered in-text text, e.g. "16" or "8-10"
     sentence: str               # the sentence the marker sits in
-    work_ids: list[str] = field(default_factory=list)   # linked works (may be empty)
+    ref_numbers: list[int] = field(default_factory=list)
+    work_ids: list[str] = field(default_factory=list)
     paragraph_index: int = -1
     section: Optional[str] = None
-    resolved: bool = False      # True if at least one work carries a usable id
-    note: Optional[str] = None  # e.g. "no embedded metadata; needs library"
+    resolved: bool = False      # True if every referenced work carries usable data
+    note: Optional[str] = None  # e.g. "reference not found in bibliography"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "marker": self.marker,
             "sentence": self.sentence,
+            "ref_numbers": self.ref_numbers,
             "work_ids": self.work_ids,
             "paragraph_index": self.paragraph_index,
             "section": self.section,

@@ -5,3 +5,5 @@
 *.pyc
 # Local example outputs
 examples/
+# Demo inputs contain unpublished manuscripts / private EndNote libraries
+demo-inputs/

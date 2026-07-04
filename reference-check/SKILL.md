@@ -55,25 +55,34 @@ E-utilities), and writes into `<outdir>`:
 
 | file | contents |
 |------|----------|
-| `<stem>_references.xlsx` | two sheets: **Audit (per citation)** and **Library (per work)**, with hyperlinked DOI/PMID/URL |
-| `<stem>_audit.csv`, `<stem>_library.csv` | same tables as CSV |
+| `<stem>_references.xlsx` | two sheets: **Citations (audit)** — a linear list of citations, each expanded to one row per referenced work with the citation cells merged; and **References (library)** — one row per unique reference. DOI/PMID/URL hyperlinked; flagged rows highlighted |
+| `<stem>_audit.csv`, `<stem>_references_table.csv` | the two tables as CSV (flat, for filtering) |
 | `<stem>_library.{csl.json,bib,ris,enw,rdf}` | the reference library in five formats |
-| `<stem>_refcheck.json` | machine-readable artifact (citations + works) — **your input for step 2** |
-| `<stem>_REVIEW.md` | citations lacking metadata + works that failed verification |
+| `<stem>_refcheck.json` | machine-readable artifact (citations + references) — **your input for step 2** |
+| `<stem>_REVIEW.md` | references that failed online verification + any unlinked citations |
 
-The `summary`, `connection`, and `appropriateness` columns are left **blank** by
-the script — they are yours to fill.
+**Data model:** a *reference* is a unique numbered work (the bibliography number
+is its id); a *citation* is one in-text marker tied to one sentence, linking to
+one or more references; **appropriateness is judged per (citation, reference)
+pair.** References come from two sources unified by number — records embedded in
+citation fields (authoritative), and the rendered numbered bibliography (usually
+the only complete source). Read both.
+
+The `ref_summary`, `connection`, and `appropriateness` columns are left **blank**
+by the script — they are yours to fill.
 
 Flags to know: `--no-resolve` (offline; embedded metadata only),
 `--cache PATH` (reuse HTTP responses across runs).
 
 ### 2. Fill the judgment columns (your job)
-Load `<stem>_refcheck.json`. For each **resolved** citation, read the
-`sentence` and the linked work's `abstract` (and title/journal), then produce:
+Load `<stem>_refcheck.json`. It has `citations` (each with `ref_numbers` and a
+`sentence`) and `references` (keyed by number, each with metadata + `abstract`).
+For each (citation, reference) pair, read the sentence and the reference's
+abstract (and title/journal), then produce:
 
-- **summary** — 1–2 sentences on the reference's main point (from the abstract).
-- **connection** — one sentence on how the reference relates to the cited
-  sentence.
+- **ref_summary** — 1–2 sentences on the reference's main point (from abstract).
+  (Same for every citation of that reference; also fill the library sheet.)
+- **connection** — one sentence on how the reference relates to *this* sentence.
 - **appropriateness** — one of `Supports` / `Partial` / `Unclear` / `Mismatch`.
   Flag anything below `Supports` for human review.
 
@@ -85,17 +94,19 @@ Write these back into the CSV/XLSX (or regenerate the table with the values).
 Do **not** invent support: if the abstract does not clearly back the claim, say
 so — a flagged citation is a useful result, not a failure.
 
-### 3. Handle unresolved citations
-`<stem>_REVIEW.md` lists in-text citations with no embedded metadata (common
-when a Word doc's EndNote/Zotero bibliography has not been generated, or the
-field data was stripped). To resolve them, ask the user for **the source
-reference-manager library** (EndNote `.xml`/`.ris`/`.enw`, Zotero, or a `.bib`),
-or a version of the document with the **bibliography generated** so the
-reference list can be parsed and searched online. Never silently drop them.
+### 3. Handle flagged references
+`<stem>_REVIEW.md` lists references that could not be confidently verified
+online (low bibliographic-match score, or no identifier). These usually need a
+human to confirm the DOI/PMID. If **no** bibliography exists in the document and
+citations are data-less, ask the user for the source reference-manager library
+(EndNote `.xml`/`.ris`/`.enw`, Zotero, `.bib`) or a document version with the
+**bibliography generated** (EndNote → "Update Citations and Bibliography"), then
+re-run. Never silently drop a citation or reference.
 
 ### 4. Report
-Summarize: N citations, N verified, N flagged for appropriateness, N unresolved.
-Point the user at the xlsx and the library files, and list what needs human eyes.
+Summarize: N citations, N references, N verified, N flagged for verification,
+N flagged for appropriateness. Point the user at the xlsx and library files, and
+list what needs human eyes.
 
 ## Reverse mode (library → table)
 If given only a reference library (`.bib`/`.ris`/`.enw`/CSL-JSON) and no source
@@ -106,8 +117,11 @@ CSL-JSON and feed the works through the resolver + tabulate steps.)*
 
 ## Input formats
 - **.docx** — supported now. Reads Word field codes directly, including EndNote
-  "traveling library" records (authoritative DOI/PMID) and the rendered
-  in-text marker; maps every citation to its sentence.
+  "traveling library" records (authoritative DOI/PMID) and the rendered in-text
+  marker, **and** the rendered numbered bibliography (`EN.REFLIST` /
+  `EndNoteBibliography` paragraphs). Unifies both by reference number and maps
+  every citation to its sentence. Bibliography-only references are resolved by
+  Crossref bibliographic search with a similarity guard.
 - **LaTeX / Markdown / PDF / plain text** — planned. LaTeX will use the `.bib` +
   `\cite` keys; Markdown/text will parse a numbered or author-year reference
   list; PDF will extract text and reference list. See

@@ -55,46 +55,40 @@ def main() -> int:
 
     print(f"[1/4] Ingesting {os.path.basename(doc)} ...")
     ing = ingest_any(doc)
-    works = ing.works
+    references = ing.references
     st = ing.to_dict()["stats"]
-    print(f"      {st['n_citations']} citations, {st['n_works']} unique works, "
-          f"{st['n_unresolved_citations']} citations without embedded metadata")
+    print(f"      {st['n_citations']} citations, {st['n_references']} unique references "
+          f"({st['n_refs_cited']} cited), {st['n_unresolved_citations']} citations unlinked")
 
-    if not args.no_resolve and works:
-        print(f"[2/4] Verifying {len(works)} works online (Crossref + PubMed) ...")
+    if not args.no_resolve and references:
+        n = len(references)
+        print(f"[2/4] Verifying {n} references online (Crossref + PubMed) ...")
         R = Resolver(cache_path=cache)
-        resolved = {}
-        for i, (wid, w) in enumerate(works.items(), 1):
-            resolved[wid] = R.resolve_work(w)
-            print(f"      ({i}/{len(works)}) {wid}", end="\r")
+        for i, num in enumerate(sorted(k for k in references if k >= 0), 1):
+            references[num] = R.resolve_work(references[num])
+            print(f"      ({i}/{n}) ref {num}   ", end="\r")
         R.save()
-        works = resolved
         print()
     else:
         print("[2/4] Skipping online verification (--no-resolve).")
 
     print("[3/4] Writing reference library (CSL-JSON, BibTeX, RIS, .enw, Zotero RDF) ...")
-    work_list = list(works.values())
+    work_list = [references[n] for n in sorted(references) if n >= 0]
     lib_paths = exporters.write_library(work_list, os.path.join(outdir, f"{stem}_library"))
 
     print("[4/4] Writing tables and review report ...")
-    audit = tabulate.build_audit_rows(ing.citations, works)
-    library = tabulate.build_library_rows(works, ing.citations)
+    audit = tabulate.build_audit_rows(ing.citations, references)
+    library = tabulate.build_library_rows(references, ing.citations)
     tabulate.write_csv(audit, tabulate.AUDIT_COLUMNS, os.path.join(outdir, f"{stem}_audit.csv"))
-    tabulate.write_csv(library, tabulate.LIBRARY_COLUMNS, os.path.join(outdir, f"{stem}_library.csv"))
+    tabulate.write_csv(library, tabulate.LIBRARY_COLUMNS, os.path.join(outdir, f"{stem}_references_table.csv"))
     xlsx = os.path.join(outdir, f"{stem}_references.xlsx")
-    tabulate.write_xlsx(
-        {"Audit (per citation)": (audit, tabulate.AUDIT_COLUMNS),
-         "Library (per work)": (library, tabulate.LIBRARY_COLUMNS)},
-        xlsx,
-    )
+    tabulate.write_xlsx(audit, library, xlsx)
 
     # machine-readable artifact for the model / resumability
     with open(os.path.join(outdir, f"{stem}_refcheck.json"), "w", encoding="utf-8") as fh:
-        json.dump({"stats": st, "citations": [c.to_dict() for c in ing.citations],
-                   "works": work_list}, fh, indent=2, ensure_ascii=False)
+        json.dump(ing.to_dict(), fh, indent=2, ensure_ascii=False)
 
-    _write_report(ing, works, outdir, stem)
+    _write_report(ing, references, outdir, stem)
 
     print(f"\nDone. Outputs in: {outdir}")
     for k, p in lib_paths.items():
@@ -105,35 +99,38 @@ def main() -> int:
     return 0
 
 
-def _write_report(ing, works, outdir, stem) -> None:
-    unresolved = [c for c in ing.citations if not c.work_ids]
+def _write_report(ing, references, outdir, stem) -> None:
+    refs = {n: w for n, w in references.items() if n >= 0}
+    unlinked = [c for c in ing.citations if not c.ref_numbers]
     unverified = [
-        w for w in works.values()
+        (n, w) for n, w in sorted(refs.items())
         if w.get("custom", {}).get("verification", {}).get("status") != "verified"
     ]
     lines = [f"# Reference review — {stem}", ""]
     lines.append(f"- Citations found: **{len(ing.citations)}**")
-    lines.append(f"- Unique works with embedded metadata: **{len(works)}**")
-    lines.append(f"- Citations lacking embedded metadata: **{len(unresolved)}**")
-    lines.append(f"- Works that could not be verified online: **{len(unverified)}**")
+    lines.append(f"- Unique references: **{len(refs)}**")
+    lines.append(f"- References verified online: **{len(refs) - len(unverified)}**")
+    lines.append(f"- References needing human review: **{len(unverified)}**")
+    lines.append(f"- Citations with no reference link: **{len(unlinked)}**")
     lines.append("")
-    if unresolved:
-        lines.append("## Citations needing a reference library or manual resolution")
-        lines.append("")
-        lines.append("These in-text citations carry no embedded record in the document "
-                     "(and no bibliography was present to parse). Supply the source "
-                     "reference-manager library, or a document version with the "
-                     "bibliography generated, to resolve them.\n")
-        for c in unresolved:
-            snippet = (c.sentence[:140] + "…") if len(c.sentence) > 140 else c.sentence
-            lines.append(f"- `[{c.marker}]` — {snippet}")
-        lines.append("")
     if unverified:
-        lines.append("## Works flagged for human review (unverified online)")
+        lines.append("## References flagged for human review")
         lines.append("")
-        for w in unverified:
-            lines.append(f"- {w.get('title','(no title)')} — DOI={w.get('DOI')} "
-                         f"PMID={w.get('custom',{}).get('pmid')}")
+        lines.append("Could not be confidently verified online (check the original "
+                     "citation, or add a DOI/PMID by hand).\n")
+        for n, w in unverified:
+            v = w.get("custom", {}).get("verification", {})
+            raw = w.get("custom", {}).get("bib_raw", "")
+            title = w.get("title") or raw[:90] or "(no title)"
+            lines.append(f"- **[{n}]** {title} — score={v.get('match_score')} "
+                         f"DOI={w.get('DOI')} PMID={w.get('custom',{}).get('pmid')}")
+        lines.append("")
+    if unlinked:
+        lines.append("## Citations with no reference link")
+        lines.append("")
+        for c in unlinked:
+            snip = (c.sentence[:140] + "…") if len(c.sentence) > 140 else c.sentence
+            lines.append(f"- `[{c.marker}]` ({c.note or ''}) — {snip}")
         lines.append("")
     with open(os.path.join(outdir, f"{stem}_REVIEW.md"), "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines))

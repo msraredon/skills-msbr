@@ -89,18 +89,20 @@ def test_nested_endnote_field_extracts_record_and_sentence():
     assert len(ing.citations) == 1, ing.citations
     c = ing.citations[0]
     assert c.marker == "1"
+    assert c.ref_numbers == [1]
     assert c.resolved is True
     # citation attaches to the FIRST sentence, not the second
     assert "regenerates after injury" in c.sentence
     assert "unrelated" not in c.sentence
-    # embedded record captured with DOI + PMID
-    assert len(ing.works) == 1
-    w = next(iter(ing.works.values()))
+    # embedded record captured under reference number 1, with DOI + PMID
+    assert 1 in ing.references
+    w = ing.references[1]
     assert w["DOI"] == "10.1000/abc"
     assert w["custom"]["pmid"] == "12345"
+    assert w["custom"]["source"] == "endnote-embedded"
 
 
-def test_dataless_citation_flagged_not_dropped():
+def test_dataless_citation_without_bibliography_is_flagged():
     para = (
         '<w:p><w:r><w:t>Claim without data</w:t></w:r>'
         + _field("ADDIN EN.CITE", "7")
@@ -109,10 +111,32 @@ def test_dataless_citation_flagged_not_dropped():
     ing = parse_document_xml(_wrap(para))
     assert len(ing.citations) == 1
     c = ing.citations[0]
-    assert c.marker == "7"
-    assert c.resolved is False
-    assert c.work_ids == []
-    assert c.note and "needs library" in c.note
+    assert c.ref_numbers == [7]
+    assert c.resolved is False       # no bibliography entry 7 to link to
+    assert c.note and "not in bibliography" in c.note
+
+
+def test_bibliography_links_dataless_citation():
+    """A data-less marker resolves against the rendered bibliography by number."""
+    body = (
+        '<w:p><w:r><w:t>Compensatory growth is well documented</w:t></w:r>'
+        + _field("ADDIN EN.CITE", "8-9")
+        + '<w:r><w:t>.</w:t></w:r></w:p>'
+        # rendered bibliography entries (EndNoteBibliography style)
+        + '<w:p><w:pPr><w:pStyle w:val="EndNoteBibliography"/></w:pPr>'
+          '<w:r><w:t>8.</w:t></w:r><w:r><w:tab/>'
+          '<w:t xml:space="preserve">A. Author, First paper title. J Test 1, 1-9 (2019).</w:t></w:r></w:p>'
+        + '<w:p><w:pPr><w:pStyle w:val="EndNoteBibliography"/></w:pPr>'
+          '<w:r><w:t>9.</w:t></w:r><w:r><w:tab/>'
+          '<w:t xml:space="preserve">B. Writer, Second paper title. J Test 2, 10-20 (2020).</w:t></w:r></w:p>'
+    )
+    ing = parse_document_xml(_wrap(body))
+    assert len(ing.bibliography) == 2
+    c = ing.citations[0]
+    assert c.ref_numbers == [8, 9]
+    assert c.resolved is True
+    assert ing.references[8]["custom"]["bib_raw"].startswith("A. Author")
+    assert ing.references[9]["custom"]["bib_raw"].startswith("B. Writer")
 
 
 def test_records_from_fieldcode_multiple_cites():

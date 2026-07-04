@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -78,6 +79,40 @@ class Resolver:
         except Exception:
             return None
 
+    def crossref_biblio(self, query: str, rows: int = 3) -> list[dict]:
+        url = CROSSREF[:-1] + "?" + urllib.parse.urlencode(
+            {"query.bibliographic": query, "rows": rows, "mailto": CONTACT})
+        body = self._get(url)
+        if not body:
+            return []
+        try:
+            return json.loads(body).get("message", {}).get("items", [])
+        except Exception:
+            return []
+
+    def best_bibmatch(self, raw: str, year: Optional[str] = None):
+        """Resolve a free-text reference string to a Crossref record.
+
+        Returns (item, score) for the best candidate, or (None, 0.0). Guarded by
+        title-token containment so we never silently accept a wrong paper.
+        """
+        raw_tokens = _tokens(raw)
+        best, best_score = None, 0.0
+        for item in self.crossref_biblio(raw):
+            title = re.sub(r"<[^>]+>", "", (item.get("title") or [""])[0])
+            t_tokens = _tokens(title)
+            if not t_tokens:
+                continue
+            overlap = len(t_tokens & raw_tokens) / len(t_tokens)
+            iyear = ""
+            if item.get("issued", {}).get("date-parts"):
+                iyear = str(item["issued"]["date-parts"][0][0])
+            if year and iyear and year != iyear:
+                overlap -= 0.25       # penalize year mismatch
+            if overlap > best_score:
+                best, best_score = item, overlap
+        return best, round(best_score, 2)
+
     # ---- NCBI (PMID) ----------------------------------------------------
     def pubmed_summary(self, pmid: str) -> Optional[dict]:
         body = self._eutils("esummary.fcgi", {"db": "pubmed", "id": pmid, "retmode": "json"})
@@ -132,9 +167,23 @@ class Resolver:
         doi = normalize_doi(w.get("DOI"))
         pmid = normalize_pmid(custom.get("pmid"))
         report = {"doi_verified": False, "pmid_verified": False, "abstract": False,
-                  "cross_filled": [], "errors": []}
+                  "cross_filled": [], "match_score": None, "errors": []}
 
-        cr = self.crossref(doi) if doi else None
+        cr = None
+        # Bibliography-only entry: recover a DOI by bibliographic search first.
+        if not doi and not pmid and custom.get("bib_raw"):
+            item, score = self.best_bibmatch(custom["bib_raw"], year=_work_year(w))
+            report["match_score"] = score
+            if item and score >= 0.6:
+                doi = normalize_doi(item.get("DOI"))
+                w["DOI"] = doi
+                cr = item
+                report["cross_filled"].append("doi<-bibsearch")
+            else:
+                report["errors"].append("no confident bibliographic match")
+
+        if cr is None:
+            cr = self.crossref(doi) if doi else None
         if cr is not None:
             report["doi_verified"] = True
             self._merge_crossref(w, cr)
@@ -194,7 +243,7 @@ class Resolver:
 
         if cr.get("title"):
             title = cr["title"][0] if isinstance(cr["title"], list) else cr["title"]
-            w.setdefault("title", title)
+            w.setdefault("title", re.sub(r"<[^>]+>", "", title).strip())
         if cr.get("container-title"):
             ct = cr["container-title"]
             w.setdefault("container-title", ct[0] if isinstance(ct, list) else ct)
@@ -214,3 +263,26 @@ def _strip_jats(s: str) -> str:
     import re
     s = re.sub(r"<[^>]+>", " ", s)
     return re.sub(r"\s+", " ", s).strip()
+
+
+_STOP = {"the", "a", "an", "of", "and", "in", "on", "for", "to", "with", "by",
+         "at", "from", "as", "is", "are", "using", "via", "et", "al"}
+
+
+def _tokens(s: str) -> set:
+    import re
+    words = re.findall(r"[a-z0-9]+", (s or "").lower())
+    return {w for w in words if len(w) > 2 and w not in _STOP}
+
+
+def _work_year(w: dict):
+    import re
+    dp = w.get("issued", {}).get("date-parts")
+    if dp and dp[0]:
+        return str(dp[0][0])
+    raw = w.get("custom", {}).get("bib_raw", "")
+    m = re.findall(r"\((\d{4})[a-z]?\)", raw) or re.findall(r"\b(19|20)\d{2}\b", raw)
+    if m:
+        y = m[-1]
+        return y if len(y) == 4 else None
+    return None
